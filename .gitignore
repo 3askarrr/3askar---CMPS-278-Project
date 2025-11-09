@@ -1,0 +1,12 @@
+# Backend environment and dependencies
+backend/.env
+backend/node_modules
+
+# Frontend dependencies and build files
+frontend/**/node_modules
+frontend/**/dist
+frontend/**/vite.config.js.timestamp*
+
+# System files
+.DS_Store
+Thumbs.db
