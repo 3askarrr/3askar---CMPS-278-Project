@@ -9,6 +9,8 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
+import MenuBar from "./MenuBar";
+
 
 
 
@@ -69,6 +71,9 @@ function Homepage() {
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
         Welcome to Drive
       </Typography>
+
+      {/* MENU BAR obviously */}
+      <MenuBar/>
 
       <Accordion
         defaultExpanded
