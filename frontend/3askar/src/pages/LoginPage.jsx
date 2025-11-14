@@ -1,6 +1,8 @@
 import React, {useState} from "react";
 import { Box, Paper, Typography, TextField, Link, Button, FormControl, InputLabel, Select, MenuItem, Alert, FormHelperText } from "@mui/material";
 const API_URL = import.meta.env.VITE_API_URL;
+import { useNavigate } from "react-router-dom";
+
 
 const isValueEmpty = (value) => {
   if (typeof value === "string") {
@@ -16,6 +18,8 @@ export default function LoginPage() {
   const [showCreateErrors, setShowCreateErrors] = useState(false);
   const [loginAlert, setLoginAlert] = useState(null);
   const [showLoginErrors, setShowLoginErrors] = useState(false);
+  const navigate = useNavigate();
+
 
   //login button handles logging in the user
   const handleLogin = async ()=> {
@@ -280,7 +284,11 @@ export default function LoginPage() {
           <Link
           href="#"
           underline="none"               
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/forgot-password");
+          }}
+
           sx={{
             mt: 1.5,
             display: "inline-block",
