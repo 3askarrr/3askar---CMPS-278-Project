@@ -9,6 +9,26 @@ const isValueEmpty = (value) => {
   return !value;
 };
 
+const isValidEmail = (value) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return false;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+};
+
+const strongPasswordRegex = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/; //taken from https://uibakery.io/regex-library/password
+
+const isStrongPassword = (value) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  return strongPasswordRegex.test(value);
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +54,14 @@ export default function LoginPage() {
         severity: "warning",
         message: "Please fill in the required fields before signing in.",
         details: missingFieldsList,
+      });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setLoginAlert({
+        severity: "error",
+        message: "Please enter a valid email address.",
       });
       return;
     }
@@ -82,6 +110,22 @@ export default function LoginPage() {
         severity: "warning",
         message: "Please fill in the required fields before creating an account.",
         details: missingFieldsList,
+      });
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      setCreateAlert({
+        severity: "error",
+        message: "Password must include upper/lower case letters, a number, a symbol, and be at least 8 characters.",
+      });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setCreateAlert({
+        severity: "error",
+        message: "Please enter a valid email address.",
       });
       return;
     }
@@ -161,18 +205,49 @@ export default function LoginPage() {
           "&.Mui-error.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#d32f2f" },
         };
 
+  const getEmailErrorMessage = (shouldShowErrors) => {
+    if (!shouldShowErrors) {
+      return "";
+    }
+    if (isValueEmpty(email)) {
+      return "Required";
+    }
+    if (!isValidEmail(email)) {
+      return "Enter a valid email address";
+    }
+    return "";
+  };
+
+  const loginEmailErrorMessage = getEmailErrorMessage(showLoginErrors);
+  const createEmailErrorMessage = getEmailErrorMessage(showCreateErrors);
+
+  const getCreatePasswordErrorMessage = () => {
+    if (!showCreateErrors) {
+      return "";
+    }
+    if (isValueEmpty(password)) {
+      return "Required";
+    }
+    if (!isStrongPassword(password)) {
+      return "Use 8+ characters with upper, lower, number, and symbol.";
+    }
+    return "";
+  };
+
+  const createPasswordErrorMessage = getCreatePasswordErrorMessage();
+
   const createFieldErrors = {
     firstName: showCreateErrors && isValueEmpty(firstName),
     lastName: showCreateErrors && isValueEmpty(lastName),
     dobMonth: showCreateErrors && isValueEmpty(dobMonth),
     dobDay: showCreateErrors && isValueEmpty(dobDay),
     dobYear: showCreateErrors && isValueEmpty(dobYear),
-    email: showCreateErrors && isValueEmpty(email),
-    password: showCreateErrors && isValueEmpty(password),
+    email: Boolean(createEmailErrorMessage),
+    password: Boolean(createPasswordErrorMessage),
   };
 
   const loginFieldErrors = {
-    email: showLoginErrors && isValueEmpty(email),
+    email: Boolean(loginEmailErrorMessage),
     password: showLoginErrors && isValueEmpty(password),
   };
 
@@ -251,7 +326,7 @@ export default function LoginPage() {
               </Alert>
             )}
             <TextField
-              label="Email or phone"
+              label="Email"
               variant="outlined"
               fullWidth
               value={email}
@@ -259,7 +334,7 @@ export default function LoginPage() {
               InputLabelProps={{ shrink: true }}
               sx={fieldSx}
               error={loginFieldErrors.email}
-              helperText={loginFieldErrors.email ? "Required" : " "}
+              helperText={loginEmailErrorMessage || " "}
             />  
 
 
@@ -467,7 +542,7 @@ export default function LoginPage() {
               {/*input field email and pass*/}
 
               <TextField
-              label="Email or phone"
+              label="Email"
               variant="outlined"
               fullWidth
               value={email}
@@ -475,7 +550,7 @@ export default function LoginPage() {
               InputLabelProps={{ shrink: true }}
               sx={fieldSx}
               error={createFieldErrors.email}
-              helperText={createFieldErrors.email ? "Required" : " "}
+              helperText={createEmailErrorMessage || " "}
             />  
 
 
@@ -490,7 +565,7 @@ export default function LoginPage() {
             variant="outlined"
             sx={fieldSx}
             error={createFieldErrors.password}
-            helperText={createFieldErrors.password ? "Required" : " "}
+            helperText={createPasswordErrorMessage || " "}
           />
 
               <Box 

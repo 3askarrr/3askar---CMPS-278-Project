@@ -42,10 +42,10 @@ router.post('/login', async (req, res) => {
     const checkUser = await User.findOne({email: `${email}`});
 
     if (!checkUser){
-      return res.status(400).send("Email or Password doesnt exist");
+      return res.status(400).send("Email doesnt exist");
     }
     if (!checkUser.passwordHash){
-      return res.status(400).send("Email or Password doesnt exist");
+      return res.status(400).send("Password doesnt exist");
     }
 
     //checks of the stored encrypted password matches the password inputted by the user
