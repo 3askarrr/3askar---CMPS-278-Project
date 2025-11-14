@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import { Box, Paper, Typography, TextField, Link, Button, FormControl, InputLabel, Select, MenuItem, Alert, FormHelperText } from "@mui/material";
+import { Box, Paper, Typography, TextField, Link, Button, FormControl, InputLabel, Select, MenuItem, Alert, FormHelperText, Checkbox, FormControlLabel } from "@mui/material";
 const API_URL = import.meta.env.VITE_API_URL;
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +39,8 @@ export default function LoginPage() {
   const [loginAlert, setLoginAlert] = useState(null);
   const [showLoginErrors, setShowLoginErrors] = useState(false);
   const navigate = useNavigate();
+  const [rememberMe, setRememberMe] = useState(false);
+
 
 
   //login button handles logging in the user
@@ -78,8 +80,9 @@ export default function LoginPage() {
       headers: {"Content-Type": "application/json"}, // read in json basically
       credentials: "include", //this is to prvoide cookies fo the session
       body: JSON.stringify({
-        email: email,
-        password: password
+        email,
+        password,
+        rememberMe
       })
     })
 
@@ -290,12 +293,12 @@ export default function LoginPage() {
               userSelect: "none",
             }}
           >
-            <Box component="span" sx={{ color: "#1a73e8", fontWeight: 549}}>G</Box>
-            <Box component="span" sx={{ color: "#ea4335", fontWeight: 549}}>o</Box>
-            <Box component="span" sx={{ color: "#fbbc05", fontWeight: 549}}>o</Box>
-            <Box component="span" sx={{ color: "#1a73e8", fontWeight: 549}}>g</Box>
-            <Box component="span" sx={{ color: "#34a853", fontWeight: 549}}>l</Box>
-            <Box component="span" sx={{ color: "#ea4335", fontWeight: 549}}>e</Box>
+            <Box component="span" sx={{ color: "#1a73e8", fontWeight: 549}}>3</Box>
+            <Box component="span" sx={{ color: "#ea4335", fontWeight: 549}}>a</Box>
+            <Box component="span" sx={{ color: "#fbbc05", fontWeight: 549}}>s</Box>
+            <Box component="span" sx={{ color: "#1a73e8", fontWeight: 549}}>k</Box>
+            <Box component="span" sx={{ color: "#34a853", fontWeight: 549}}>a</Box>
+            <Box component="span" sx={{ color: "#ea4335", fontWeight: 549}}>r</Box>
           </Typography>
 
           {/*Main heading*/}
@@ -356,29 +359,56 @@ export default function LoginPage() {
             helperText={loginFieldErrors.password ? "Required" : " "}
           />
 
-          <Link
-          href="#"
-          underline="none"               
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/forgot-password");
-          }}
+          
 
-          sx={{
-            mt: 1.5,
-            display: "inline-block",
-            color: "#1a73e8",            
-            fontWeight: 400,
-            "&:hover": {
-              color: "#1a73e8",          
-              textDecoration: "none",    
-              backgroundColor: "transparent",
-              cursor: "pointer",         
-            },
-          }}
-        >
-          Forgot Password?
-        </Link>
+          
+
+          {/* Remember me + Forgot password row */}
+          <Box
+            sx={{
+              mt: 1,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ fontSize: 14 }}>
+                  Remember me
+                </Typography>
+              }
+              sx={{ m: 0 }}   // no extra margins
+            />
+
+            <Link
+              href="#"
+              underline="none"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/forgot-password");
+              }}
+              sx={{
+                color: "#1a73e8",
+                fontSize: 14,
+                "&:hover": {
+                  textDecoration: "underline",
+                  backgroundColor: "transparent",
+                  cursor: "pointer",
+                },
+              }}
+            >
+              Forgot Password?
+            </Link>
+          </Box>
+
 
 
         {/* Bottom row */}
