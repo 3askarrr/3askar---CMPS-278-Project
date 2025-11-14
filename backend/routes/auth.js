@@ -3,6 +3,7 @@ const passport = require("passport");
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto'); //secure random token generator
+const sendEmail = require('../utils/sendEmail'); //email sending utility
 
 // Step 1 — Login with Google
 router.get(
@@ -117,7 +118,7 @@ router.post('/forgot-password', async (req, res) => {
 
     //Security 
     if(!user) {
-      return res.status(200).send('IF an account with that email exists, a reset link has been sent');
+      return res.status(200).send('If an account with that email exists, a reset link has been sent');
     }
 
     // Generate a secure random token
@@ -130,7 +131,48 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
     
     const resetLink = `http://localhost:5173/reset-password/${token}`;
-    console.log(`Password reset link for ${email}: ${resetLink}`); //Print to console instead of sending email FOR NOW
+    console.log(`Password reset link for ${email}: ${resetLink}`); //Print to console instead of sending email
+
+        const subject = "Reset your 3askar Drive password";
+
+        const text = `You requested a password reset for your 3askar Drive account.
+    Reset link (valid for 15 minutes): ${resetLink}
+    If you did not request this, you can ignore this email.`;
+
+        const html = `
+          <p>You requested a password reset for your <strong>3askar Drive</strong> account.</p>
+          <p>Click the button below to reset your password (valid for 15 minutes):</p>
+          <p>
+            <a href="${resetLink}"
+              style="display:inline-block;padding:10px 16px;background:#1a73e8;color:#ffffff;
+                      text-decoration:none;border-radius:4px;">
+              Reset Password
+            </a>
+          </p>
+          <p>If the button doesn't work, copy and paste this link into your browser:</p>
+          <p><a href="${resetLink}">${resetLink}</a></p>
+          <p>If you did not request this, you can safely ignore this email.</p>
+        `;
+
+
+    await sendEmail({ to: email, subject, text, html }); // eamil is sent using nodemailer    
+    try {
+      await sendEmail({
+        to: email,
+        subject,
+        text,
+        html,
+      });
+    } catch (emailErr) {
+      console.error("Error sending reset email:", emailErr);
+      return res.status(500).send("Error sending reset email");
+    }
+
+    return res.status(200).json({
+      message: 'IF an account with that email exists, a reset link has been sent',
+      resetLink
+    });
+
 
     //For dev: return the link as well, so you can copy it
     return res.status(200).json({
