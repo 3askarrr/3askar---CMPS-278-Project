@@ -210,7 +210,6 @@ export default function LoginPage() {
         };
   const selectSx = {
           mt: 2,
-          width: "100%",
           backgroundColor: "#fff",
           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#f6fafe" },
           "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#dadce0" },
@@ -268,31 +267,38 @@ export default function LoginPage() {
 
 
   return (
-    <Box
-      component="main"
-      sx={{
-        minHeight: "100vh",
-        width: "100%",
-        bgcolor: "#f5f5f5",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: { xs: "flex-start", md: "center" },
-        py: { xs: 4, md: 6 },
-        px: { xs: 1.5, sm: 2 },
-      }}
-    >
-      {/* White card*/}
-      <Paper
-        elevation={3}
+    <div   
+    
+    style={{
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "#f5f5f5",
+    margin: 0,
+    padding: 0,
+    width: "100vw",
+    height: "100vh",
+    overflow: "auto",
+  }}>
+      <Box 
         sx={{
-          width: "100%",
-          maxWidth: 520,
-          mx: "auto",
-          p: { xs: 3, sm: 4 },
-          borderRadius: 2,
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "#f5f5f5",
+          p: 2,
         }}
-
       >
+        {/* White card*/}
+        <Paper
+          elevation={3}
+          sx={{
+            width: "10.6cm" ,
+            maxWidth: "92vw",
+            p: 4,
+            borderRadius: 2,
+          }}
+
+        >
           {/* Header Section */}
           
 
@@ -397,39 +403,28 @@ export default function LoginPage() {
           </Link>
 
 
-        {/* Bottom row */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            justifyContent: { sm: "space-between" },
-            alignItems: { xs: "stretch", sm: "center" },
-            gap: { xs: 2, sm: 0 },
-            mt: 3,
-          }}
-        >
-          <Link
-            href="#"
-            underline="hover"
-            onClick={(e) => {
-              e.preventDefault();
+          {/* Bottom row */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 3 }}>
+            <Link
+              href="#"
+              underline="hover"
+              onClick={(e) => {
+                e.preventDefault();
                 setMode("create");
                 setShowCreateErrors(false);
                 setCreateAlert(null);
                 setShowLoginErrors(false);
                 setLoginAlert(null);
-            }}
-            sx={{
-              px: 1.5,
-              py: 1,
-              borderRadius: 1,
-              textAlign: "center",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": {
-                backgroundColor: "#f6fafe", 
-                textDecoration: "none",     
-              },
-            }}
+              }}
+              sx={{
+                px: -2,
+                py: 1,                        
+                borderRadius: 1,              
+                "&:hover": {
+                  backgroundColor: "#f6fafe", 
+                  textDecoration: "none",     
+                },
+              }}
             >
               Create account
             </Link>
@@ -437,15 +432,14 @@ export default function LoginPage() {
             <Button
               variant="contained"
               onClick={handleLogin}
-            sx={{
-              textTransform: "none",
-              px: 3,
-              width: { xs: "100%", sm: "auto" },
-              bgcolor: "#1a73e8",
-              "&:hover": { bgcolor: "#185abc" },
-            }}
-          >
-            Sign in
+              sx={{
+                textTransform: "none",
+                px: 3,
+                bgcolor: "#1a73e8",
+                "&:hover": { bgcolor: "#185abc" },
+              }}
+            >
+              Sign in
             </Button>
           </Box>
           <Box
@@ -463,32 +457,31 @@ export default function LoginPage() {
             <Box sx={{ flex: 1, height: 1, bgcolor: "#dadce0" }} />
           </Box>
 
-        <Box sx={{ display: "flex", justifyContent: "center", width: "100%" }}>
-          <Button
-            variant="outlined"
-            onClick={handleGoogleLogin}
-            disabled={isGoogleLoading}
-            sx={{
-              mt: 3,
-              width: { xs: "100%", sm: "auto" },
-              borderColor: "#dadce0",
-              color: "#3c4043",
-              textTransform: "none",
-              fontWeight: 500,
-              px: 3,
-              py: 1.2,
-              borderRadius: "999px",
-              gap: 1.5,
-              boxShadow: "0 1px 2px rgba(60,64,67,0.3)",
-              backgroundColor: "#fff",
-              transition: "transform 0.2s ease, box-shadow 0.2s ease",
-              animation: isGoogleLoading ? "pulseEffect 1.6s ease-in-out infinite" : "none",
-              justifyContent: "center",
-              "@keyframes pulseEffect": {
-                "0%": { boxShadow: "0 0 0 0 rgba(26,115,232,0.3)" },
-                "70%": { boxShadow: "0 0 0 12px rgba(26,115,232,0)" },
-                "100%": { boxShadow: "0 0 0 0 rgba(26,115,232,0)" },
-              },
+          <Box sx={{ display: "flex", justifyContent: "center" }}>
+            <Button
+              variant="outlined"
+              onClick={handleGoogleLogin}
+              disabled={isGoogleLoading}
+              sx={{
+                mt: 3,
+                borderColor: "#dadce0",
+                color: "#3c4043",
+                textTransform: "none",
+                fontWeight: 500,
+                px: 3,
+                py: 1.2,
+                borderRadius: "999px",
+                gap: 1.5,
+                boxShadow: "0 1px 2px rgba(60,64,67,0.3)",
+                backgroundColor: "#fff",
+                width: "fit-content",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                animation: isGoogleLoading ? "pulseEffect 1.6s ease-in-out infinite" : "none",
+                "@keyframes pulseEffect": {
+                  "0%": { boxShadow: "0 0 0 0 rgba(26,115,232,0.3)" },
+                  "70%": { boxShadow: "0 0 0 12px rgba(26,115,232,0)" },
+                  "100%": { boxShadow: "0 0 0 0 rgba(26,115,232,0)" },
+                },
                 "&:hover": {
                   borderColor: "#dadce0",
                   backgroundColor: "#f8f9fa",
@@ -572,7 +565,7 @@ export default function LoginPage() {
                   }}
                 >
                   {/* Month */}
-                  <FormControl error={createFieldErrors.dobMonth} fullWidth>
+                  <FormControl error={createFieldErrors.dobMonth}>
                     <InputLabel shrink>Month</InputLabel>
                     <Select
                       value={dobMonth}
@@ -589,7 +582,7 @@ export default function LoginPage() {
                   </FormControl>
 
                   {/* Day */}
-                  <FormControl error={createFieldErrors.dobDay} fullWidth>
+                  <FormControl error={createFieldErrors.dobDay}>
                     <InputLabel shrink>Day</InputLabel>
                     <Select
                       value={dobDay}
@@ -605,7 +598,7 @@ export default function LoginPage() {
                   </FormControl>
 
                   {/* Year */}
-                  <FormControl error={createFieldErrors.dobYear} fullWidth>
+                  <FormControl error={createFieldErrors.dobYear}>
                     <InputLabel shrink>Year</InputLabel>
                     <Select
                       value={dobYear}
@@ -671,10 +664,8 @@ export default function LoginPage() {
                 <Box 
                   sx={{
                     display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    justifyContent: { sm: "space-between" },
-                    alignItems: { xs: "stretch", sm: "center" },
-                    gap: { xs: 2, sm: 0 },
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     mt: 3,
                   }}
                 >
@@ -692,8 +683,6 @@ export default function LoginPage() {
                     sx={{
                       px: 1.5,
                       py: 0.8,
-                      width: { xs: "100%", sm: "auto" },
-                      textAlign: "center",
                       borderRadius: 1,
                       "&:hover": { backgroundColor: "#f6fafe",},
                     }}
@@ -706,7 +695,6 @@ export default function LoginPage() {
                     sx={{
                       textTransform: "none",
                       px: 3,
-                      width: { xs: "100%", sm: "auto" },
                       bgcolor: "#1a73e8",
                       "&:hover": { bgcolor: "#1765cc" },
                     }}
@@ -724,6 +712,7 @@ export default function LoginPage() {
           )}
         </Paper>
       </Box>
+    </div>
   );
 }
 /*END */
