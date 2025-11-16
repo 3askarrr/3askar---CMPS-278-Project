@@ -2,9 +2,10 @@ const User = require("../models/User");
 
 /*
 * @param {String} userId - ID of the user
-* @param {Number} size - Size in bytes to add or remove
+* @param {Number} size - Size in bytes to add or remove, can never be  negative
 * @param {String} action - "add" to increase storage, "remove" to decrease
 */
+
 
 
 async function updateStorage(userId, size, action) {

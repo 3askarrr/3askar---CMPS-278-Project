@@ -1,18 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const multer = require("multer");
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Types; // to handle ObjectId conversion
 const { Readable } = require("stream"); // to convert buffer to stream for GridFS
 const { read } = require('fs');
 const updateStorage = require('../utils/storage');
 const File = require("../models/File");
-
-
+const User = require("../models/User");
 
 let gridfsBucket; 
 // once mongoose connection is open, initialize GridFS bucket to make sure it's ready before handling requests
@@ -47,9 +44,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         // console.log("req.user =", req.user);
         // console.log("gridfsBucket =", gridfsBucket);
 
-        // if (!req.user){
-        //     return res.status(401).json({ message: "Not authenticated" });
-        // }
+        if (!req.user){
+            return res.status(401).json({ message: "Not authenticated" });
+        }
 
         if (!req.file) { //multer places the file in req.file, if no file was uploaded, return error
             return res.status(400).json({ message: "No file uploaded" });
@@ -58,6 +55,14 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         // Extract file info from multer, comes from multer's memory storage
         // originalname: original file name, mimetype: file type, buffer: file data, size: file size in bytes, 
         const { originalname, mimetype, size, buffer } = req.file;
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (user.storageLimit && user.storageUsed + size > user.storageLimit) {
+            return res.status(400).json({ message: "Storage limit exceeded" });
+        }
+
         if (!gridfsBucket) {
             return res.status(500).json({ message: "GridFS Bucket not initialized" });//if GridFS bucket is not initialized, return error
         }
@@ -65,7 +70,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         const readStream = Readable.from(buffer); // gridfs expects a stream, convert buffer to readable stream
 
         //create an upload stream to GridFS
-        //orginalname is the filename stored in GridFS
         //grid fs automatically splits the file into chunks and stores them in file.chunks and stores metadata in file.files
         const uploadStream = gridfsBucket.openUploadStream(originalname, {
             contentType: mimetype,
@@ -79,23 +83,18 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         //GridFS emits 'finish' event when upload into mongoDB is complete
         //"file" is the actual mongoDB file document created in the file.files
         //contains file._id, file.length, file.contentType, file.metadata
- 
 
         uploadStream.on("finish", async () => {
             try {
-             
                 const realId = uploadStream.id;
-                console.log("UPLOAD FINISHED — REAL GRIDFS ID:", realId);
-
+                console.log("UPLOAD FINISHED — REAL GRIDFS ID:", realId); //for debugging 
                 // Fetch file from GridFS
-                const files = await gridfsBucket.find({ _id: realId }).toArray();
+                const files = await gridfsBucket.find({ _id: realId }).toArray(); //confirm file is in database, read file.length for storage, return correct metadata to client
                 const dbFile = files[0];
-
                 if (!dbFile) {
                     console.log("GridFS lookup failed for ID:", realId);
                     return res.status(500).json({ message: "GridFS lookup failed" });
                 }
-
                 // Update storage usage
                 await updateStorage(req.user._id, dbFile.length, "add");
 
@@ -111,12 +110,11 @@ router.post("/upload", upload.single("file"), async (req, res) => {
                         : "",
                 });
 
-            } catch (err) {
+            } catch (err) { //if any error occurs during the finish handler
                 console.error("Error in finish handler:", err);
                 res.status(500).json({ message: "Error finalizing upload" });
             }
         });
-
 
         //if error occurs during upload, respond with error
         uploadStream.on("error", (err) => { 
@@ -126,7 +124,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
         //send the inmemory file into the database as a stream
         readStream.pipe(uploadStream);
-    } catch (err) {
+    } catch (err) { //before uploading to gridfs
         console.error("Error in /files/upload:", err);
         res.status(500).json({ message: "Server error during file upload" });
     }
@@ -150,7 +148,7 @@ router.get("/:id/download", async (req, res) => {
             return res.status(400).json({ message: "Invalid file ID format" });
         }
 
-        const files = await gridfsBucket.find({ _id: objectId }).toArray();
+        const files = await gridfsBucket.find({ _id: objectId }).toArray();    
         if (!files || files.length === 0) {
             return res.status(404).json({ message: "File not found" });
         }
@@ -167,7 +165,7 @@ router.get("/:id/download", async (req, res) => {
         const readStream = gridfsBucket.openDownloadStream(objectId);
         res.set({
             "Content-Type": file.contentType,
-            "Content-Disposition": `attachment; filename="${file.filename}"`,
+            "Content-Disposition": `attachment; filename="${file.filename}"`,    
         });
         readStream.pipe(res); //stream the file back to client
 
@@ -201,8 +199,7 @@ router.delete("/:id", async (req, res) =>{
         const fileId = req.params.id;
         let objectId; 
         try{
-            req.user = { _id: new ObjectId("676f2ac5308f1a22222a1ce4") }; //temp for postman
-
+            // req.user = { _id: new ObjectId("676f2ac5308f1a22222a1ce4") }; //temp for postman
             objectId = new ObjectId(fileId);
         }catch(err){
             return res.status(400).json({ message: "Invalid file ID format" });
@@ -210,7 +207,6 @@ router.delete("/:id", async (req, res) =>{
 
         const files = await gridfsBucket.find({_id: objectId}).toArray(); 
         console.log("files =", files);
-
         
         if(!files || files.length === 0 ){
             return res.status(404).json({ message: "File not found" });
@@ -248,7 +244,7 @@ router.delete("/:id", async (req, res) =>{
 //____________
 router.post("/saveMetadata", async (req, res) => {
     try {
-        console.log("➡️ /files/saveMetadata route reached");
+        console.log("➡️ /files/saveMetadata route reached"); //debugging
         // req.user  ={_id: new ObjectId() }; // TEMPORARY for Postman
 
         if (!req.user){
@@ -334,7 +330,7 @@ router.get("/", async (req, res) => {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: false,
-        }).sort({ uploadDate: -1 }); // newest first
+        }).sort({ uploadDate: -1 }); // newest first (descending)
 
         res.json(files);
     } catch (err) {
@@ -393,7 +389,7 @@ router.patch("/:id/star", async (req, res) => {
 
 
 // PATCH /files/:id/trash
-router.patch("/:id/trash", async (req, res) => {
+router.patch("/:id/trash", async (req, res) => { // put path to bin
     try {
         const { isDeleted } = req.body;
 
@@ -558,14 +554,14 @@ router.get("/list/trash", async (req, res) => {
 });
 
 //Get recent files
-router.get("/list/recent", async (req, res) => {
+router.get("/list/recent", async (req, res) => { 
     try {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: false
         })
         .sort({ lastAccessed: -1 })
-        .limit(20);
+        .limit(20); //check if its for all 
 
         res.json(files);
     } catch (err) {
@@ -581,7 +577,7 @@ router.patch("/:id/share", async (req, res) => {
 
         if (!req.user) return res.status(401).json({ message: "Not authenticated" });
         if (!userId || !permission) return res.status(400).json({ message: "Missing fields" });
-        if (!["read", "write"].includes(permission))
+        if (!["read", "write"].includes(permission)) //TODO IF YOU CHANGE OT BOOLEAN
             return res.status(400).json({ message: "Invalid permission" });
 
         const file = await File.findOne({ _id: req.params.id, owner: req.user._id });
