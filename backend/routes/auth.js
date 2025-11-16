@@ -30,8 +30,7 @@ router.get("/logout", (req, res) => {
 
 router.post('/login', async (req, res) => {
   try{
-    const email = req.body.email;
-    const password = req.body.password;
+     const { email, password, rememberMe } = req.body;
 
     if (!email){
       return res.status(400).send("Email not provided");
@@ -53,16 +52,28 @@ router.post('/login', async (req, res) => {
     //checks of the stored encrypted password matches the password inputted by the user
     const match = await bcrypt.compare(password, checkUser.passwordHash);
 
-    if (match){
+    if (match) {
+      // Decide cookie lifetime based on rememberMe
+      if (rememberMe) {
+        // 30 days
+        req.sessionOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
+      } else {
+        // Short session: 1 hour
+        req.sessionOptions.maxAge = 60 * 60 * 1000;
+      }
+
       req.login(checkUser, (err) => {
-        if (err){
-          return res.status(500).send('login failed');
+        if (err) {
+          console.error("Passport login error:", err);
+          return res.status(500).send("login failed");
         }
-        return res.status(200).send('Login successful');
+        return res.status(200).send("Login successful");
       });
-    } else{
-      return res.status(401).send('invalid email or password');
+    } else {
+      return res.status(401).send("invalid email or password");
     }
+
+
   } catch (error){
     console.log('Error during login');
   }
