@@ -23,10 +23,10 @@ mongoose.connection.once("open", () => {
     console.log("✅ GridFS Bucket initialized in files route");
 });
 
-router.use((req, res, next) => {
-  req.user = { _id: new ObjectId("676f2ac5308f1a22222a1ce4") }; 
-  next();
-});
+// router.use((req, res, next) => { //for testing with Postman
+//   req.user = { _id: new ObjectId("676f2ac5308f1a22222a1ce4") }; 
+//   next();
+// });
 
 
 //______________________________________
