@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import apiClient from "../services/apiClient";
+import apiClient, { API_BASE_URL } from "../services/apiClient";
 
 const FileContext = createContext();
 
@@ -280,6 +280,56 @@ export const FileProvider = ({ children }) => {
     }
   }, []);
 
+  const renameFile = useCallback(async (id, newName) => {
+    const trimmed = newName?.trim();
+    if (!trimmed) return;
+
+    const allFiles = [
+      ...filesRef.current,
+      ...trashRef.current,
+      ...sharedFiles,
+    ];
+    const existing = allFiles.find((file) => file.id === id);
+    if (!existing) return;
+
+    const applyRename = (collection, name) =>
+      collection.map((file) =>
+        file.id === id ? { ...file, name } : file
+      );
+
+    setFiles((prev) => applyRename(prev, trimmed));
+    setSharedFiles((prev) => applyRename(prev, trimmed));
+    setTrashFiles((prev) => applyRename(prev, trimmed));
+
+    if (USE_MOCK_DATA) return;
+
+    try {
+      await apiClient.patch(`/files/${id}/rename`, { newName: trimmed });
+    } catch (err) {
+      setFiles((prev) => applyRename(prev, existing.name));
+      setSharedFiles((prev) => applyRename(prev, existing.name));
+      setTrashFiles((prev) => applyRename(prev, existing.name));
+      setError(
+        err.response?.data?.message || "Unable to rename file at the moment."
+      );
+    }
+  }, [sharedFiles]);
+
+  const downloadFile = useCallback(
+    (file) => {
+      if (!file?.id) return;
+
+      if (USE_MOCK_DATA) {
+        window.alert("Downloads are unavailable in mock mode.");
+        return;
+      }
+
+      const url = `${API_BASE_URL}/files/${file.id}/download`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+    []
+  );
+
   const uploadFiles = useCallback(async (selectedFiles, options = {}) => {
     if (!selectedFiles?.length) return [];
     setUploading(true);
@@ -365,6 +415,8 @@ export const FileProvider = ({ children }) => {
         moveToTrash,
         restoreFromBin,
         deleteForever,
+        renameFile,
+        downloadFile,
         uploadFiles,
       }}
     >
