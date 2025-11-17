@@ -1,6 +1,7 @@
 import React from "react";
-import { Box, Typography, Accordion, AccordionSummary, AccordionDetails} from "@mui/material";
+import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Button} from "@mui/material";
 import { Grid, Paper } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add"
 import FolderIcon from "@mui/icons-material/Folder";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import IconButton from "@mui/material/IconButton";
@@ -10,7 +11,8 @@ import MenuItem from "@mui/material/MenuItem";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
-import { getFolders } from "../api/foldersApi";
+import FileKebabMenu from "./FileKebabMenu";
+import { getFolders, createFolder, updateFolder, getBreadcrumb, getStarredFolders, getTrashFolders, getSharedFolders, getRecentFolders } from "../api/foldersApi";
 
 
 
@@ -22,8 +24,33 @@ function Homepage() {
   const handleClose = () => setAnchorEl(null);
   const [viewMode, setViewMode] = React.useState("list");
 
+// "MY_DRIVE" | "STARRED" | "TRASH" | "SHARED" | "RECENT"
+  const [currentView, setCurrentView] = React.useState("MY_DRIVE");
+
+  // Folder action menu (for folders in "Suggested folders")
+  const [folderMenuAnchor, setFolderMenuAnchor] = React.useState(null);
+  const [selectedFolder, setSelectedFolder] = React.useState(null);
+  const folderMenuOpen = Boolean(folderMenuAnchor);
+
+  const handleFolderMenuOpen = (event, folder) => {
+    event.stopPropagation?.();          // don't trigger card click (open folder)
+    setFolderMenuAnchor(event.currentTarget);
+    setSelectedFolder(folder);
+  };
+
+  const handleFolderMenuClose = () => {
+    setFolderMenuAnchor(null);
+    setSelectedFolder(null);
+  };
+
+
   //which folder are we currently viewing? null = My Drive root
   const [currentFolderId, setCurrentFolderId] = React.useState(null);
+
+  //breadcrumb data for current folder
+  const [breadcrumb, setBreadcrumb] = React.useState([]);
+  const [breadcrumbLoading, setBreadcrumbLoading] = React.useState(false);
+  const [breadcrumbError, setBreadcrumbError] = React.useState(null); 
 
   // File action menu (for list and grid items)
   const [fileMenuAnchor, setFileMenuAnchor] = React.useState(null);
@@ -43,16 +70,27 @@ function Homepage() {
   const [foldersLoading, setFoldersLoading] = React.useState(true);
   const [foldersError, setFoldersError] = React.useState(null);
 
-    React.useEffect(() => { //fetch whevern current folder Id changes
-  async function loadFolders() { //not only root
+    // helper load folders depending on currentView and currentFolderId
+  const loadFoldersForCurrentView = async () => {
     try {
       setFoldersLoading(true);
       setFoldersError(null);
 
-      // currentFolderId:
-      //   null → root "My Drive"
-      //   "abc123" → children of that folder
-      const folders = await getFolders(currentFolderId);
+      let folders;
+
+      if (currentView === "MY_DRIVE") {
+        // My Drive → use parentFolderId (currentFolderId)
+        folders = await getFolders(currentFolderId);
+      } else if (currentView === "STARRED") {
+        folders = await getStarredFolders();
+      } else if (currentView === "TRASH") {
+        folders = await getTrashFolders();
+      } else if (currentView === "SHARED") {
+        folders = await getSharedFolders();
+      } else if (currentView === "RECENT") {
+        folders = await getRecentFolders(30); // or 20, whatever you prefer
+      }
+
       setRootFolders(folders);
     } catch (err) {
       console.error("Failed to load folders", err);
@@ -60,14 +98,215 @@ function Homepage() {
     } finally {
       setFoldersLoading(false);
     }
-  }
-
-  loadFolders();
-}, [currentFolderId]); // <-- runs again whenever currentFolderId changes
-
-  const handleFolderOpen = (folderId) => {
-    setCurrentFolderId(folderId);
   };
+
+
+  React.useEffect(() => {
+    loadFoldersForCurrentView();    // <--- calls our new helper function
+  }, [currentView, currentFolderId]);
+
+
+
+  // Load breadcrumb when currentFolderId changes
+  React.useEffect(() => {
+    // Views other than My Drive have simple static breadcrumb
+    if (currentView === "STARRED") {
+      setBreadcrumb([{ _id: null, name: "Starred" }]);
+      setBreadcrumbError(null);
+      setBreadcrumbLoading(false);
+      return;
+    }
+
+    if (currentView === "TRASH") {
+      setBreadcrumb([{ _id: null, name: "Trash" }]);
+      setBreadcrumbError(null);
+      setBreadcrumbLoading(false);
+      return;
+    }
+
+    if (currentView === "SHARED") {
+      setBreadcrumb([{ _id: null, name: "Shared with me" }]);
+      setBreadcrumbError(null);
+      setBreadcrumbLoading(false);
+      return;
+    }
+
+    if (currentView === "RECENT") {
+      setBreadcrumb([{ _id: null, name: "Recent" }]);
+      setBreadcrumbError(null);
+      setBreadcrumbLoading(false);
+      return;
+    }
+
+    // MY_DRIVE logic:
+    if (currentFolderId === null) {
+      setBreadcrumb([{ _id: null, name: "My Drive" }]);
+      setBreadcrumbError(null);
+      setBreadcrumbLoading(false);
+      return;
+    }
+
+    async function loadBreadcrumb() {
+      try {
+        setBreadcrumbLoading(true);
+        setBreadcrumbError(null);
+
+        const chain = await getBreadcrumb(currentFolderId);
+        setBreadcrumb(chain);
+      } catch (err) {
+        console.error("Failed to load breadcrumb", err);
+        setBreadcrumbError(err.message || "Failed to load breadcrumb");
+      } finally {
+        setBreadcrumbLoading(false);
+      }
+    }
+
+    loadBreadcrumb();
+  }, [currentView, currentFolderId]);
+
+
+    const handleFolderOpen = (folderId) => {
+      // If we’re in Starred or Trash and click a folder,
+      // open it in My Drive context.
+      if (currentView !== "MY_DRIVE") {
+        setCurrentView("MY_DRIVE");
+      }
+      setCurrentFolderId(folderId);
+    };
+
+
+    const handleCreateFolder = async () => {
+    const name = window.prompt("Folder name:");
+    if (!name || !name.trim()) return;
+
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
+
+      await createFolder({
+        name: name.trim(),
+        parentFolder: currentFolderId,
+      });
+
+      await loadFoldersForCurrentView();  // <--- use helper
+    } catch (err) {
+      console.error("Failed to create folder", err);
+      setFoldersError(err.message || "Failed to create folder");
+    } finally {
+      setFoldersLoading(false);
+    }
+  };
+
+
+    // Rename selected folder
+  const handleRenameFolder = async () => {
+    if (!selectedFolder) return;
+
+    const newName = window.prompt("New folder name:", selectedFolder.name);
+    if (!newName || !newName.trim()) {
+      return;
+    }
+
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
+
+      await updateFolder(selectedFolder._id, {
+        name: newName.trim(),
+      });
+
+      await loadFoldersForCurrentView(); 
+    } catch (err) {
+      console.error("Failed to rename folder", err);
+      setFoldersError(err.message || "Failed to rename folder");
+    } finally {
+      setFoldersLoading(false);
+      handleFolderMenuClose();
+    }
+  };
+
+  // Move selected folder to trash (soft delete)
+  const handleTrashFolder = async () => {
+    if (!selectedFolder) return;
+
+    // If we're in Trash view or folder is already deleted → RESTORE
+    const isCurrentlyTrashed =
+      currentView === "TRASH" || selectedFolder.isDeleted;
+
+    if (isCurrentlyTrashed) {
+      const confirmRestore = window.confirm(
+        `Restore "${selectedFolder.name}" from trash?`
+      );
+      if (!confirmRestore) return;
+
+      try {
+        setFoldersLoading(true);
+        setFoldersError(null);
+
+        await updateFolder(selectedFolder._id, {
+          isDeleted: false,
+        });
+
+        await loadFoldersForCurrentView();
+      } catch (err) {
+        console.error("Failed to restore folder", err);
+        setFoldersError(err.message || "Failed to restore folder");
+      } finally {
+        setFoldersLoading(false);
+        handleFolderMenuClose();
+      }
+    } else {
+      // Not in trash → move to Trash
+      const confirmDelete = window.confirm(
+        `Move "${selectedFolder.name}" to trash?`
+      );
+      if (!confirmDelete) return;
+
+      try {
+        setFoldersLoading(true);
+        setFoldersError(null);
+
+        await updateFolder(selectedFolder._id, {
+          isDeleted: true,
+        });
+
+        await loadFoldersForCurrentView();
+      } catch (err) {
+        console.error("Failed to remove folder", err);
+        setFoldersError(err.message || "Failed to remove folder");
+      } finally {
+        setFoldersLoading(false);
+        handleFolderMenuClose();
+      }
+    }
+  };
+
+
+  // Toggle star / unstar
+  const handleToggleStarFolder = async () => {
+    if (!selectedFolder) return;
+
+    const newStarValue = !selectedFolder.isStarred;
+
+    try {
+      setFoldersLoading(true);
+      setFoldersError(null);
+
+      await updateFolder(selectedFolder._id, {
+        isStarred: newStarValue,
+      });
+
+      await loadFoldersForCurrentView();
+    } catch (err) {
+      console.error("Failed to update star", err);
+      setFoldersError(err.message || "Failed to update star");
+    } finally {
+      setFoldersLoading(false);
+      handleFolderMenuClose();
+    }
+  };
+
+ 
 
 
   // TODO - upate to read from database/endpoint/service
@@ -102,9 +341,67 @@ function Homepage() {
         borderTopLeftRadius: 12, 
       }}
     >
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
+      <Typography variant="h5" sx={{ fontWeight: 600 }}>
         Welcome to Drive
       </Typography>
+
+      {/* View selector: My Drive / Starred / Trash */}
+      <Box sx={{ mt: 1, mb: 1.5, display: "flex", gap: 1 }}>
+        <Button
+          size="small"
+          variant={currentView === "MY_DRIVE" ? "contained" : "text"}
+          onClick={() => {
+            setCurrentView("MY_DRIVE");
+            setCurrentFolderId(null);
+          }}
+        >
+          My Drive
+        </Button>
+        <Button
+          size="small"
+          variant={currentView === "STARRED" ? "contained" : "text"}
+          onClick={() => {
+            setCurrentView("STARRED");
+            setCurrentFolderId(null);
+          }}
+        >
+          Starred
+        </Button>
+        <Button
+          size="small"
+          variant={currentView === "TRASH" ? "contained" : "text"}
+          onClick={() => {
+            setCurrentView("TRASH");
+            setCurrentFolderId(null);
+          }}
+        >
+          Trash
+        </Button>
+        <Button
+          size="small"
+          variant={currentView === "SHARED" ? "contained" : "text"}
+          onClick={() => {
+            setCurrentView("SHARED");
+            setCurrentFolderId(null);
+          }}
+        >
+          Shared with me
+        </Button>
+
+        <Button
+          size="small"
+          variant={currentView === "RECENT" ? "contained" : "text"}
+          onClick={() => {
+            setCurrentView("RECENT");
+            setCurrentFolderId(null);
+          }}
+        >
+          Recent
+        </Button>
+      </Box>
+
+      {/* Breadcrumb + MenuBar go after this (as you already have) */}
+
 
       {currentFolderId !== null && (    //to go back up after going in folder
         <Typography
@@ -121,6 +418,56 @@ function Homepage() {
           ← Back to My Drive
         </Typography>
       )}
+
+      {/* Breadcrumb */}
+      <Box sx={{ mt: 1, mb: 2 }}>
+        {breadcrumbLoading ? (
+          <Typography variant="body2" sx={{ color: "#5f6368" }}>
+            Loading path...
+          </Typography>
+        ) : breadcrumbError ? (
+          <Typography variant="body2" sx={{ color: "red" }}>
+            {breadcrumbError}
+          </Typography>
+        ) : (
+          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.5 }}>
+            {breadcrumb.map((item, index) => {
+              const isLast = index === breadcrumb.length - 1;
+              const isRoot = item._id === null;
+
+              // When clicking breadcrumb:
+              // - null  → go to My Drive (currentFolderId = null)
+              // - id    → go to that folder
+              const handleClickCrumb = () => {
+                if (isLast) return; // don't re-load the same folder
+                setCurrentFolderId(item._id || null);
+              };
+
+              return (
+                <React.Fragment key={item._id ?? "root"}>
+                  <Typography
+                    variant="body2"
+                    onClick={!isLast ? handleClickCrumb : undefined}
+                    sx={{
+                      cursor: !isLast ? "pointer" : "default",
+                      fontWeight: isLast ? 600 : 400,
+                      color: isLast ? "#202124" : "#1a73e8",
+                      textDecoration: !isLast ? "underline" : "none",
+                    }}
+                  >
+                    {isRoot ? "My Drive" : item.name}
+                  </Typography>
+                  {!isLast && (
+                    <Typography variant="body2" sx={{ color: "#5f6368" }}>
+                      /
+                    </Typography>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </Box>
+        )}
+      </Box>
 
       {/* MENU BAR obviously */}
       <MenuBar/>
@@ -147,6 +494,9 @@ function Homepage() {
             "& .MuiAccordionSummary-content": {
               marginY: 0,
               marginLeft: 0.5,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
             },
             "&:hover": {
               backgroundColor: "#e8f0fe",
@@ -158,9 +508,26 @@ function Homepage() {
           <Typography sx={{ fontWeight: 600, color: "#202124" }}>
             Suggested folders
           </Typography>
+
+          {/* "New folder" button */}
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={(e) => {
+              e.stopPropagation(); // prevent accordion from toggling
+              handleCreateFolder();
+            }}
+            sx={{
+              textTransform: "none",
+              fontSize: 13,
+              color: "#1a73e8",
+            }}
+          >
+            New folder
+          </Button>
         </AccordionSummary>
 
-        
+                
         <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
           <Grid container spacing={2}>
             {/* Loading */}
@@ -227,14 +594,17 @@ function Homepage() {
                           : "In My Drive"}
                       </Typography>
                     </Box>
-                    <IconButton size="small" onClick={handleClick}>
+
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleFolderMenuOpen(e, folder)}
+                    >
                       <MoreVertIcon sx={{ color: "#5f6368" }} />
                     </IconButton>
-                    <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-                      <MenuItem onClick={handleClose}>Open</MenuItem>
-                      <MenuItem onClick={handleClose}>Share</MenuItem>
-                      <MenuItem onClick={handleClose}>Remove</MenuItem>
-                    </Menu>
+
+                    {/* !removed old menu that was here */}
+                    
+
                   </Paper>
                 </Grid>
               ))}
@@ -456,6 +826,19 @@ function Homepage() {
           </Menu>
         </AccordionDetails>
       </Accordion>
+
+      {/*  Shared kebab menu for FOLDERS */}
+      <FileKebabMenu
+        anchorEl={folderMenuAnchor}
+        anchorPosition={null}
+        open={folderMenuOpen}
+        onClose={handleFolderMenuClose}
+        onRename={handleRenameFolder}
+        onTrash={handleTrashFolder}
+        onToggleStar={handleToggleStarFolder}
+        isStarred={selectedFolder?.isStarred}
+        isInTrash={currentView === "TRASH" || selectedFolder?.isDeleted}
+      />
 
     </Box>
   );
