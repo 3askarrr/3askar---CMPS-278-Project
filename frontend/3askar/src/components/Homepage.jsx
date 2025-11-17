@@ -13,11 +13,19 @@ import MenuBar from "./MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
 
 function Homepage() {
-  const{ files, loading } = useFiles();
+  const{ files, loading, error } = useFiles();
 
   if (loading) {
     return (
       <Typography sx={{ p: 2 }}>Loading recent files...</Typography>
+    );
+  }
+
+  if (error) {
+    return (
+      <Typography sx={{ p: 2, color: "#d93025" }}>
+        {error}
+      </Typography>
     );
   }
 

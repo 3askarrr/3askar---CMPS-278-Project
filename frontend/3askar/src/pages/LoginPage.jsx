@@ -1,12 +1,11 @@
-import React, {useState} from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Paper, Typography, TextField, Link, Button, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const handleNext = ()=> {
-    alert(`Next clicked with email: ${email || "(empty)"} - UI only`);
-  };
   const [mode, setMode] = useState("login"); //login or create pages
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -19,7 +18,18 @@ export default function LoginPage() {
   months.freeze();
   days.freeze();
   years.freeze();
-  //const [gender, setGender] = useState("");
+  const { login, loading: authLoading, user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  const handleNext = () => {
+    login();
+  };
 
 
   const fieldSx={
@@ -173,6 +183,7 @@ export default function LoginPage() {
           <Button
             variant="contained"
             onClick={handleNext}
+            disabled={authLoading}
             sx={{
               textTransform: "none",
               px: 3,
@@ -180,7 +191,7 @@ export default function LoginPage() {
               "&:hover": { bgcolor: "#185abc" },
             }}
           >
-            Next
+            Continue with Google
           </Button>
         </Box>
 
@@ -333,15 +344,16 @@ export default function LoginPage() {
 
                 <Button
                   variant="contained"
+                  disabled={authLoading}
                   sx={{
                     textTransform: "none",
                     px: 3,
                     bgcolor: "#1a73e8",
                     "&:hover": { bgcolor: "#1765cc" },
                   }}
-                  onClick={() => alert("Create account (UI only)")}
+                  onClick={handleNext}
                 >
-                  Next
+                  Continue with Google
                 </Button>
                                     
               </Box>     
@@ -364,4 +376,4 @@ export default function LoginPage() {
     </Box>
   );
 }
-/*END */
+

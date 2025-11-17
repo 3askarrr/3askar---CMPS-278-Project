@@ -11,6 +11,8 @@ const updateStorage = require('../utils/storage');
 const File = require("../models/File");
 const User = require("../models/User");
 
+const OWNER_FIELDS = "name email picture";
+
 let gridfsBucket; 
 // once mongoose connection is open, initialize GridFS bucket to make sure it's ready before handling requests
 mongoose.connection.once("open", () => {
@@ -298,11 +300,12 @@ router.post("/saveMetadata", async (req, res) => {
 
         // Step 4: Save in MongoDB
         const savedFile = await newFile.save();
+        const populatedFile = await savedFile.populate("owner", OWNER_FIELDS);
         
         // Step 5: Respond
         res.status(201).json({
             message: "Metadata saved",
-            file: savedFile
+            file: populatedFile
         });
         
     }catch(err){
@@ -330,7 +333,9 @@ router.get("/", async (req, res) => {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: false,
-        }).sort({ uploadDate: -1 }); // newest first (descending)
+        })
+        .populate("owner", OWNER_FIELDS)
+        .sort({ uploadDate: -1 }); // newest first (descending)
 
         res.json(files);
     } catch (err) {
@@ -351,7 +356,7 @@ router.patch("/:id/rename", async (req, res) => {
             { _id: req.params.id, owner: req.user._id },
             { $set: { filename: newName } },
             { new: true }
-        );
+        ).populate("owner", OWNER_FIELDS);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -375,7 +380,7 @@ router.patch("/:id/star", async (req, res) => {
             { _id: req.params.id, owner: req.user._id },
             { $set: { isStarred: !!isStarred } },
             { new: true }
-        );
+        ).populate("owner", OWNER_FIELDS);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -399,7 +404,7 @@ router.patch("/:id/trash", async (req, res) => { // put path to bin
             { _id: req.params.id, owner: req.user._id },
             { $set: { isDeleted: !!isDeleted } },
             { new: true }
-        );
+        ).populate("owner", OWNER_FIELDS);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -428,7 +433,7 @@ router.patch("/:id/move", async (req, res) => {
                 }
             },
             { new: true }
-        );
+        ).populate("owner", OWNER_FIELDS);
 
         if (!updated) return res.status(404).json({ message: "File not found" });
 
@@ -497,7 +502,9 @@ router.get("/list/mydrive", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             folderId: null
-        }).sort({ filename: 1 });
+        })
+        .populate("owner", OWNER_FIELDS)
+        .sort({ filename: 1 });
 
         res.json(files);
     } catch (err) {
@@ -513,7 +520,7 @@ router.get("/list/folder/:folderId", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             folderId: req.params.folderId
-        });
+        }).populate("owner", OWNER_FIELDS);
 
         res.json(files);
     } catch (err) {
@@ -529,7 +536,7 @@ router.get("/list/starred", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             isStarred: true
-        });
+        }).populate("owner", OWNER_FIELDS);
 
         res.json(files);
     } catch (err) {
@@ -544,7 +551,7 @@ router.get("/list/trash", async (req, res) => {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: true
-        });
+        }).populate("owner", OWNER_FIELDS);
 
         res.json(files);
     } catch (err) {
@@ -560,6 +567,7 @@ router.get("/list/recent", async (req, res) => {
             owner: req.user._id,
             isDeleted: false
         })
+        .populate("owner", OWNER_FIELDS)
         .sort({ lastAccessed: -1 })
         .limit(20); //check if its for all 
 
@@ -592,7 +600,8 @@ router.patch("/:id/share", async (req, res) => {
         }
 
         await file.save();
-        res.json({ message: "File shared", file });
+        const populated = await file.populate("owner", OWNER_FIELDS);
+        res.json({ message: "File shared", file: populated });
 
     } catch (err) {
         console.error("PATCH /share error:", err);
@@ -613,8 +622,9 @@ router.patch("/:id/unshare", async (req, res) => {
 
         file.sharedWith = file.sharedWith.filter(x => x.user.toString() !== userId);
         await file.save();
+        const populated = await file.populate("owner", OWNER_FIELDS);
 
-        res.json({ message: "User unshared", file });
+        res.json({ message: "User unshared", file: populated });
 
     } catch (err) {
         console.error("PATCH /unshare error:", err);
@@ -640,8 +650,9 @@ router.patch("/:id/permission", async (req, res) => {
 
         target.permission = permission;
         await file.save();
+        const populated = await file.populate("owner", OWNER_FIELDS);
 
-        res.json({ message: "Permission updated", file });
+        res.json({ message: "Permission updated", file: populated });
 
     } catch (err) {
         console.error("PATCH /permission error:", err);
@@ -660,7 +671,7 @@ router.get("/shared", async (req, res) => {
         const files = await File.find({
             "sharedWith.user": req.user._id,
             isDeleted: false
-        });
+        }).populate("owner", OWNER_FIELDS);
 
         res.json(files);
 
