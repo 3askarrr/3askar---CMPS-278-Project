@@ -1,4 +1,5 @@
 import { Divider, Menu, MenuItem } from "@mui/material";
+import { useFiles } from "../context/fileContext.jsx";
 
 import DownloadIcon from "@mui/icons-material/Download";
 import DriveFileRenameOutlineIcon from "@mui/icons-material/DriveFileRenameOutline";
@@ -8,15 +9,19 @@ import DriveFileMoveIcon from "@mui/icons-material/DriveFileMove";
 import InfoIcon from "@mui/icons-material/Info";
 import DeleteIcon from "@mui/icons-material/Delete";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
+import StarIcon from "@mui/icons-material/Star";
 
 function FileKebabMenu({
   anchorEl,
   anchorPosition,
   open,
   onClose,
-  selectedItem,
+  selectedFile,
   onViewDetails,
 }) {
+  const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
+    useFiles();
+
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
   const menuItemStyle = {
@@ -28,6 +33,65 @@ function FileKebabMenu({
   };
 
   const iconStyle = { color: "rgba(0,0,0,0.6)" };
+
+  // --- ACTION HANDLERS ---
+
+  const handleDownload = () => {
+    if (!selectedFile) return;
+    downloadFile(selectedFile);
+    onClose?.();
+  };
+
+  const handleRename = () => {
+    if (!selectedFile) return;
+
+    const newName = window.prompt(
+      "Rename file",
+      selectedFile.name || ""
+    );
+
+    if (!newName || newName.trim() === "" || newName === selectedFile.name) {
+      onClose?.();
+      return;
+    }
+
+    renameFile(selectedFile.id, newName.trim());
+    onClose?.();
+  };
+
+  const handleCopy = async () => {
+    if (!selectedFile) return;
+
+    try {
+      await copyFile(selectedFile);
+    } catch (err) {
+      console.error("Failed to copy file:", err);
+    } finally {
+      onClose?.();
+    }
+  };
+
+  const handleTrash = () => {
+    if (!selectedFile) return;
+    moveToTrash(selectedFile.id);
+    onClose?.();
+  };
+
+  const handleStarToggle = () => {
+    if (!selectedFile) return;
+    toggleStar(selectedFile.id);
+    onClose?.();
+  };
+
+  const starLabel = selectedFile?.isStarred
+    ? "Remove from starred"
+    : "Add to starred";
+
+  const StarIconComponent = selectedFile?.isStarred
+    ? StarIcon
+    : StarBorderIcon;
+
+  // --- MENU ---
 
   return (
     <Menu
@@ -48,39 +112,59 @@ function FileKebabMenu({
         },
       }}
     >
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Download */}
+      <MenuItem
+        onClick={handleDownload}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
         <DownloadIcon fontSize="small" sx={iconStyle} />
         Download
       </MenuItem>
 
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Rename */}
+      <MenuItem
+        onClick={handleRename}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
         <DriveFileRenameOutlineIcon fontSize="small" sx={iconStyle} />
         Rename
       </MenuItem>
 
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Make a Copy */}
+      <MenuItem
+        onClick={handleCopy}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
         <FileCopyIcon fontSize="small" sx={iconStyle} />
         Make a copy
       </MenuItem>
 
       <Divider sx={{ my: 0.5 }} />
 
+      {/* Share (placeholder) */}
       <MenuItem onClick={onClose} sx={menuItemStyle}>
         <PersonAddIcon fontSize="small" sx={iconStyle} />
         Share
       </MenuItem>
 
+      {/* Organize (placeholder) */}
       <MenuItem onClick={onClose} sx={menuItemStyle}>
         <DriveFileMoveIcon fontSize="small" sx={iconStyle} />
         Organize
       </MenuItem>
 
+      {/* FILE INFORMATION */}
       <MenuItem
-        sx={menuItemStyle}
         onClick={() => {
-          onViewDetails(selectedItem);
+          if (onViewDetails && selectedFile) {
+            onViewDetails(selectedFile);
+          }
           onClose();
         }}
+        sx={menuItemStyle}
       >
         <InfoIcon fontSize="small" sx={iconStyle} />
         File information
@@ -88,14 +172,24 @@ function FileKebabMenu({
 
       <Divider sx={{ my: 0.5 }} />
 
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Trash */}
+      <MenuItem
+        onClick={handleTrash}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
         <DeleteIcon fontSize="small" sx={iconStyle} />
         Move to trash
       </MenuItem>
 
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
-        <StarBorderIcon fontSize="small" sx={iconStyle} />
-        Add to starred
+      {/* Star toggle */}
+      <MenuItem
+        onClick={handleStarToggle}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
+        <StarIconComponent fontSize="small" sx={iconStyle} />
+        {starLabel}
       </MenuItem>
     </Menu>
   );

@@ -9,6 +9,10 @@ dotenv.config();
 
 const app = express();
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
 // CORS: allow frontend dev server
 app.use(
   cors({
@@ -17,15 +21,14 @@ app.use(
   })
 );
 
-// Parse JSON body
-app.use(express.json());
 
 // Sessions
 app.use(
   session({
     name: "session",
     keys: [process.env.SESSION_SECRET],
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
+    //maxAge: 24 * 60 * 60 * 1000, // 1 day
+    //^ no global maxAGE keep it as default cookie session so that without remmeberMe it ends when the browser is closed
   })
 );
 
@@ -48,15 +51,17 @@ app.use(passport.session());
 // Passport config
 require("./config/passport")(passport);
 
+
 // MongoDB connection
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ Connected to MongoDB Atlas"))
-  .catch((err) => console.log("❌ MongoDB connection error:", err));
+.connect(process.env.MONGODB_URI)
+.then(() => console.log("✅ Connected to MongoDB Atlas"))
+.catch((err) => console.log("❌ MongoDB connection error:", err));
 
 // Routes
 app.use("/auth", require("./routes/auth"));
 app.use("/user", require("./routes/user"));
+app.use("/files", require("./routes/files"));
 
 app.get("/", (req, res) => res.send("Mini Drive Backend Running ✅"));
 
