@@ -20,7 +20,8 @@ function FileKebabMenu({
   onStartRename,
   onStartShare
 }) {
-  const { moveToTrash, toggleStar, downloadFile } = useFiles();
+  const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
+    useFiles();
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
   const menuItemStyle = {
@@ -51,6 +52,17 @@ function FileKebabMenu({
     if (!selectedFile) return;
     onStartShare?.(selectedFile);
     onClose?.();
+  };
+
+  const handleCopy = async () => {
+    if (!selectedFile) return;
+    try {
+      await copyFile(selectedFile);
+    } catch (err) {
+      console.error("Failed to copy file:", err);
+    } finally {
+      onClose?.();
+    }
   };
 
   const handleTrash = () => {
@@ -105,7 +117,12 @@ function FileKebabMenu({
         Rename
       </MenuItem>
 
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Make a copy */}
+      <MenuItem
+        onClick={handleCopy}
+        sx={menuItemStyle}
+        disabled={!selectedFile}
+      >
         <FileCopyIcon fontSize="small" sx={iconStyle} />
         Make a copy
       </MenuItem>
