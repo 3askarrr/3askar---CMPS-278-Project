@@ -24,6 +24,14 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   }
     
 
+  if (error) {
+    return (
+      <Typography sx={{ p: 2, color: "#d93025" }}>
+        {error}
+      </Typography>
+    );
+  }
+
   const recentFiles = [...files]
   .filter((file) => !file.isDeleted)
   .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
@@ -74,7 +82,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
-  const [selectedItem, setSelectedItem] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
@@ -84,7 +92,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
 
   const handleMenuButtonClick = (event, item) => {
     event.stopPropagation?.();
-    setSelectedItem(item);
+    setSelectedFile(item);
     setMenuPosition(null);
     setMenuAnchorEl(event.currentTarget);
   };
@@ -92,7 +100,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
   const handleContextMenu = (event, item) => {
     event.preventDefault();
     event.stopPropagation?.();
-    setSelectedItem(item);
+    setSelectedFile(item);
     setMenuAnchorEl(null);
     setMenuPosition({
       mouseX: event.clientX + 2,
@@ -103,7 +111,7 @@ const [currentFolderId, setCurrentFolderId] = React.useState(folderId || null);
   const handleMenuClose = () => {
     setMenuAnchorEl(null);
     setMenuPosition(null);
-    setSelectedItem(null);
+    setSelectedFile(null);
   };
 
   const [rootFolders, setRootFolders] = React.useState([]);
@@ -396,6 +404,16 @@ const handleCopyFolder = async () => {
 
 
 
+//for drawer
+const [detailsOpen, setDetailsOpen] = React.useState(false);
+const [selectedFile, setSelectedFile] = React.useState(null);
+
+const handleViewDetails = (file) => {
+  setSelectedFile(file);
+  setDetailsOpen(true);
+};
+
+
   return (
     <Box
       sx={{
@@ -406,8 +424,12 @@ const handleCopyFolder = async () => {
         height: "calc(100vh - 64px)",
         overflowY: "auto",
         color: "#000000ff",
-        borderTopLeftRadius: 12, 
-      }}
+        borderTopLeftRadius: 12,
+        marginRight: detailsOpen
+          ? (window.innerWidth < 600 ? "100vw" : "360px")
+          : "0",
+        transition: "margin-right 0.25s ease",
+        }}
     >
       <Typography variant="h5" sx={{ fontWeight: 600 }}>
         Welcome to Drive
@@ -860,6 +882,7 @@ const handleCopyFolder = async () => {
         open={menuOpen}
         onClose={handleMenuClose}
         selectedItem={selectedItem}
+        onViewDetails={handleViewDetails}
       />
 
 
