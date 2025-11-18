@@ -7,6 +7,9 @@ import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import StarIcon from "@mui/icons-material/Star";
 import { useFiles } from "../context/fileContext.jsx";
+import FileKebabMenu from "../components/FileKebabMenu";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -19,14 +22,36 @@ const formatDate = (value) => {
 };
 
 function MyDrive() {
-  const { files, loading, error, toggleStar } = useFiles();
+  const { files, loading, error, toggleStar, renameFile } = useFiles();
+
   const [viewMode, setViewMode] = React.useState("list");
+
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
+
+  const openMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedFile(file);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchorEl(null);
+    setSelectedFile(null);
+  };
 
   const driveFiles = React.useMemo(
     () =>
       files.filter(
         (file) =>
-          !file.isDeleted && (file.location?.toLowerCase() === "my drive" || !file.location)
+          !file.isDeleted &&
+          (file.location?.toLowerCase() === "my drive" || !file.location)
       ),
     [files]
   );
@@ -120,6 +145,7 @@ function MyDrive() {
                     }}
                   />
                 </IconButton>
+
                 {file.type === "folder" ? (
                   <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
                 ) : (
@@ -153,7 +179,7 @@ function MyDrive() {
               </Box>
 
               <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                <IconButton size="small">
+                <IconButton size="small" onClick={(e) => openMenu(e, file)}>
                   <MoreVertIcon sx={{ color: "#5f6368" }} />
                 </IconButton>
               </Box>
@@ -178,7 +204,11 @@ function MyDrive() {
                   },
                 }}
               >
-                <IconButton size="small" sx={{ position: "absolute", top: 4, right: 4 }}>
+                <IconButton
+                  size="small"
+                  sx={{ position: "absolute", top: 4, right: 4 }}
+                  onClick={(e) => openMenu(e, file)}
+                >
                   <MoreVertIcon sx={{ color: "#5f6368" }} />
                 </IconButton>
 
@@ -207,9 +237,11 @@ function MyDrive() {
                   <Typography sx={{ fontWeight: 500, fontSize: 14, mb: 0.5 }}>
                     {file.name}
                   </Typography>
+
                   <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
                     {file.owner || "Unknown"}
                   </Typography>
+
                   <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
                     {formatDate(file.lastAccessedAt || file.uploadedAt)}
                   </Typography>
@@ -219,6 +251,44 @@ function MyDrive() {
           ))}
         </Grid>
       )}
+
+      <FileKebabMenu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={closeMenu}
+        selectedFile={selectedFile}
+        onStartRename={(file) => {
+          setFileToRename(file);
+          setRenameDialogOpen(true);
+        }}
+        onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={() => {
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+        onSubmit={(newName) => {
+          renameFile(fileToRename.id, newName);
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+      />
+
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
+      />
     </Box>
   );
 }

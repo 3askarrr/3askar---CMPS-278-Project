@@ -60,12 +60,23 @@ mongoose
 .then(() => console.log("✅ Connected to MongoDB Atlas"))
 .catch((err) => console.log("❌ MongoDB connection error:", err));
 
+
+const ensureAuth = require('./middleware/auth');
+
 // Routes
 app.use("/auth", require("./routes/auth"));
-app.use("/user", require("./routes/user"));
-app.use("/files", require("./routes/files"));
+app.use("/user", ensureAuth ,require("./routes/user"));
+app.use("/files", ensureAuth ,require("./routes/files"));
 
 app.get("/", (req, res) => res.send("Mini Drive Backend Running ✅"));
+
+app.get("/debug/session", (req, res) => {
+  res.json({
+    session: req.session,
+    user: req.user || null,
+  });
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
