@@ -17,12 +17,13 @@ function FileKebabMenu({
   open,
   onClose,
   selectedFile,
+  onStartRename,
+  onStartShare,
   onViewDetails,
 }) {
   const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
     useFiles();
 
-function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTrash, onToggleStar, onCopy, isStarred, isInTrash }) {
   const anchorReference = anchorPosition ? "anchorPosition" : "anchorEl";
 
   const menuItemStyle = {
@@ -35,8 +36,7 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
 
   const iconStyle = { color: "rgba(0,0,0,0.6)" };
 
-  // --- ACTION HANDLERS ---
-
+  // --- Actions ---
   const handleDownload = () => {
     if (!selectedFile) return;
     downloadFile(selectedFile);
@@ -45,24 +45,18 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
 
   const handleRename = () => {
     if (!selectedFile) return;
+    onStartRename?.(selectedFile);
+    onClose?.();
+  };
 
-    const newName = window.prompt(
-      "Rename file",
-      selectedFile.name || ""
-    );
-
-    if (!newName || newName.trim() === "" || newName === selectedFile.name) {
-      onClose?.();
-      return;
-    }
-
-    renameFile(selectedFile.id, newName.trim());
+  const handleShare = () => {
+    if (!selectedFile) return;
+    onStartShare?.(selectedFile);
     onClose?.();
   };
 
   const handleCopy = async () => {
     if (!selectedFile) return;
-
     try {
       await copyFile(selectedFile);
     } catch (err) {
@@ -92,8 +86,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
     ? StarIcon
     : StarBorderIcon;
 
-  // --- MENU ---
-
   return (
     <Menu
       disableAutoFocusItem
@@ -113,7 +105,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
         },
       }}
     >
-      {/* Download */}
       <MenuItem
         onClick={handleDownload}
         sx={menuItemStyle}
@@ -123,7 +114,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
         Download
       </MenuItem>
 
-      {/* Rename */}
       <MenuItem
         onClick={handleRename}
         sx={menuItemStyle}
@@ -133,7 +123,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
         Rename
       </MenuItem>
 
-      {/* Make a Copy */}
       <MenuItem
         onClick={handleCopy}
         sx={menuItemStyle}
@@ -145,19 +134,16 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
 
       <Divider sx={{ my: 0.5 }} />
 
-      {/* Share (placeholder) */}
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      <MenuItem onClick={handleShare} sx={menuItemStyle}>
         <PersonAddIcon fontSize="small" sx={iconStyle} />
         Share
       </MenuItem>
 
-      {/* Organize (placeholder) */}
       <MenuItem onClick={onClose} sx={menuItemStyle}>
         <DriveFileMoveIcon fontSize="small" sx={iconStyle} />
         Organize
       </MenuItem>
 
-      {/* FILE INFORMATION */}
       <MenuItem
         onClick={() => {
           if (onViewDetails && selectedFile) {
@@ -173,7 +159,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
 
       <Divider sx={{ my: 0.5 }} />
 
-      {/* Trash */}
       <MenuItem
         onClick={handleTrash}
         sx={menuItemStyle}
@@ -183,7 +168,6 @@ function FileKebabMenu({ anchorEl, anchorPosition, open, onClose, onRename, onTr
         Move to trash
       </MenuItem>
 
-      {/* Star toggle */}
       <MenuItem
         onClick={handleStarToggle}
         sx={menuItemStyle}

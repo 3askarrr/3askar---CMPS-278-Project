@@ -48,7 +48,7 @@ const resolveIcon = (filename = "", mime = "") => {
   return match?.icon ?? DEFAULT_FILE_ICON;
 };
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false; //flip to false 
 
 const MOCK_FILES = [
   {

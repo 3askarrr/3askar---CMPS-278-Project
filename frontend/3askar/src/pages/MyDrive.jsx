@@ -7,6 +7,9 @@ import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import StarIcon from "@mui/icons-material/Star";
 import { useFiles } from "../context/fileContext.jsx";
+import FileKebabMenu from "../components/FileKebabMenu";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -19,16 +22,48 @@ const formatDate = (value) => {
 };
 
 function MyDrive() {
-  const { filteredFiles, loading, toggleStar, filterBySource } = useFiles();
+  const { files, loading, error, toggleStar, renameFile } = useFiles();
+
   const [viewMode, setViewMode] = React.useState("list");
 
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
+
+  const openMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedFile(file);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchorEl(null);
+    setSelectedFile(null);
+  };
+
   const driveFiles = React.useMemo(
-    () => filterBySource(filteredFiles, "myDrive"),
-    [filteredFiles, filterBySource]
+    () =>
+      files.filter(
+        (file) =>
+          !file.isDeleted &&
+          (file.location?.toLowerCase() === "my drive" || !file.location)
+      ),
+    [files]
   );
 
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading files...</Typography>;
+  }
+
+  if (error) {
+    return (
+      <Typography sx={{ p: 2, color: "#d93025" }}>{error}</Typography>
+    );
   }
 
   return (
@@ -56,6 +91,7 @@ function MyDrive() {
         </Typography>
       ) : (
         <>
+          {/* View Mode Buttons */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
             <IconButton
               onClick={() => setViewMode("list")}
@@ -72,6 +108,7 @@ function MyDrive() {
             </IconButton>
           </Box>
 
+          {/* LIST VIEW */}
           {viewMode === "list" ? (
             <>
               <Box
@@ -105,7 +142,14 @@ function MyDrive() {
                     "&:hover": { backgroundColor: "#f8f9fa" },
                   }}
                 >
-                  <Box sx={{ flex: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      flex: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                    }}
+                  >
                     <IconButton onClick={() => toggleStar(file.id)} size="small">
                       <StarIcon
                         sx={{
@@ -147,8 +191,14 @@ function MyDrive() {
                     </Typography>
                   </Box>
 
-                  <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                    <IconButton size="small">
+                  <Box
+                    sx={{
+                      width: 40,
+                      display: "flex",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <IconButton size="small" onClick={(e) => openMenu(e, file)}>
                       <MoreVertIcon sx={{ color: "#5f6368" }} />
                     </IconButton>
                   </Box>
@@ -156,6 +206,7 @@ function MyDrive() {
               ))}
             </>
           ) : (
+            /* GRID VIEW */
             <Grid container spacing={2}>
               {driveFiles.map((file) => (
                 <Grid item xs={12} sm={6} md={3} lg={2} key={file.id}>
@@ -173,7 +224,11 @@ function MyDrive() {
                       },
                     }}
                   >
-                    <IconButton size="small" sx={{ position: "absolute", top: 4, right: 4 }}>
+                    <IconButton
+                      size="small"
+                      sx={{ position: "absolute", top: 4, right: 4 }}
+                      onClick={(e) => openMenu(e, file)}
+                    >
                       <MoreVertIcon sx={{ color: "#5f6368" }} />
                     </IconButton>
 
@@ -216,6 +271,47 @@ function MyDrive() {
           )}
         </>
       )}
+
+      {/* FILE KEbab Menu */}
+      <FileKebabMenu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={closeMenu}
+        selectedFile={selectedFile}
+        onStartRename={(file) => {
+          setFileToRename(file);
+          setRenameDialogOpen(true);
+        }}
+        onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+      />
+
+      {/* Rename Dialog */}
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={() => {
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+        onSubmit={(newName) => {
+          renameFile(fileToRename.id, newName);
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+      />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
+      />
     </Box>
   );
 }
