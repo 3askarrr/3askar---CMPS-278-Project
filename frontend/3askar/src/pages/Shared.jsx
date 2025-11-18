@@ -3,6 +3,7 @@ import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
+import FileKebabMenu from "../components/FileKebabMenu.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -33,6 +34,21 @@ function Shared() {
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
   const [activeFile, setActiveFile] = React.useState(null);
+  const [menuPosition, setMenuPosition] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null); 
+
+  const handleOpenMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuEl(event.currentTarget);
+    setMenuPosition({ top: event.clientY, left: event.clientX });
+    setSelectedFile(file);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuEl(null);
+    setMenuPosition(null);
+    setSelectedFile(null);
+  };
 
   const sharedData = React.useMemo(
     () => [...(sharedFiles || [])],
@@ -63,15 +79,6 @@ function Shared() {
     return data;
   }, [sharedFiles, sortField, sortDirection]);
 
-  const handleOpenMenu = (event, file) => {
-    setMenuEl(event.currentTarget);
-    setActiveFile(file);
-  };
-
-  const handleCloseMenu = () => {
-    setMenuEl(null);
-    setActiveFile(null);
-  };
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -185,11 +192,14 @@ function Shared() {
         ))
       )}
 
-      <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleCloseMenu}>Open</MenuItem>
-        <MenuItem onClick={handleCloseMenu}>Download</MenuItem>
-        <MenuItem onClick={handleCloseMenu}>Remove</MenuItem>
-      </Menu>
+      <FileKebabMenu
+        anchorEl={menuEl}
+        anchorPosition={menuPosition}
+        open={Boolean(menuEl)}
+        onClose={handleCloseMenu}
+        selectedFile={selectedFile}
+      />
+
     </Box>
   );
 }

@@ -6,6 +6,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import StarIcon from "@mui/icons-material/Star";
+import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { useFiles } from "../context/fileContext.jsx";
 
 const DEFAULT_FILE_ICON =
@@ -19,8 +20,26 @@ const formatDate = (value) => {
 };
 
 function MyDrive() {
-  const { files, loading, error, toggleStar } = useFiles();
+  const { files, loading, error, toggleStar, copyFile, moveToTrash} = useFiles();
   const [viewMode, setViewMode] = React.useState("list");
+
+  const [menuEl, setMenuEl] = React.useState(null);
+  const [menuPosition, setMenuPosition] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
+
+  const handleOpenMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuEl(event.currentTarget);
+    setMenuPosition({ top: event.clientY, left: event.clientX });
+    setSelectedFile(file);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuEl(null);
+    setMenuPosition(null);
+    setSelectedFile(null);
+  };
+
 
   const driveFiles = React.useMemo(
     () =>
@@ -112,7 +131,14 @@ function MyDrive() {
               }}
             >
               <Box sx={{ flex: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
-                <IconButton onClick={() => toggleStar(file.id)} size="small">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleStar(file.id);
+                  }}
+                >
+
                   <StarIcon
                     sx={{
                       color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
@@ -153,7 +179,7 @@ function MyDrive() {
               </Box>
 
               <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                <IconButton size="small">
+                <IconButton size="small" onClick={(e) => handleOpenMenu(e, file)}>
                   <MoreVertIcon sx={{ color: "#5f6368" }} />
                 </IconButton>
               </Box>
@@ -178,7 +204,9 @@ function MyDrive() {
                   },
                 }}
               >
-                <IconButton size="small" sx={{ position: "absolute", top: 4, right: 4 }}>
+                <IconButton size="small" sx={{ position: "absolute", top: 4, right: 4 }}
+                  onClick={(e) => handleOpenMenu(e, file)}
+                >
                   <MoreVertIcon sx={{ color: "#5f6368" }} />
                 </IconButton>
 
@@ -219,6 +247,15 @@ function MyDrive() {
           ))}
         </Grid>
       )}
+      <FileKebabMenu
+        anchorEl={menuEl}
+        anchorPosition={menuPosition}
+        open={Boolean(menuEl)}
+        onClose={handleCloseMenu}
+        selectedFile={selectedFile}
+      />
+
+
     </Box>
   );
 }

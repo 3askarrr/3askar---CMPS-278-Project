@@ -3,6 +3,8 @@ import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
 import { useFiles } from "../context/fileContext.jsx";
+import RestoreFromTrashIcon from "@mui/icons-material/RestoreFromTrash";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -36,6 +38,14 @@ function Bin() {
   const [menuEl, setMenuEl] = React.useState(null);
   const [activeFile, setActiveFile] = React.useState(null);
 
+  const menuItemStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 1.5,
+    fontSize: "0.95rem",
+  };
+  const iconStyle = { color: "rgba(0,0,0,0.6)" };
+
   const deletedFiles = React.useMemo(
     () => [...(trashFiles || [])],
     [trashFiles]
@@ -64,6 +74,7 @@ function Bin() {
     });
     return data;
   }, [deletedFiles, sortField, sortDirection]);
+
 
   const handleOpenMenu = (event, file) => {
     setMenuEl(event.currentTarget);
@@ -207,8 +218,14 @@ function Bin() {
       )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleRestore}>Restore</MenuItem>
-        <MenuItem onClick={handleDeleteForever}>Delete forever</MenuItem>
+        <MenuItem onClick={handleRestore} sx={menuItemStyle}>
+          <RestoreFromTrashIcon fontSize="small" sx={iconStyle} />
+          Restore
+        </MenuItem>
+        <MenuItem onClick={handleDeleteForever} sx={menuItemStyle}>
+          <DeleteForeverIcon fontSize="small" sx={{ ...iconStyle, color: "#d93025" }} />
+          Delete forever
+        </MenuItem>
       </Menu>
     </Box>
   );

@@ -1,9 +1,11 @@
 import React from "react";
-import { Box, Typography, IconButton, Menu, MenuItem } from "@mui/material";
+import { Box, Typography, IconButton } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
 import StarIcon from "@mui/icons-material/Star";
 import { useFiles } from "../context/fileContext.jsx";
+import FileKebabMenu from "../components/FileKebabMenu.jsx";
+
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -16,15 +18,28 @@ function Starred() {
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
+  const [menuPosition, setMenuPosition] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null); 
+
+  const handleOpenMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuEl(event.currentTarget);
+    setMenuPosition({ top: event.clientY, left: event.clientX });
+    setSelectedFile(file);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuEl(null);
+    setMenuPosition(null);
+    setSelectedFile(null);
+  };
+  
 
   const { files, loading, error } = useFiles();
   const starredFiles = React.useMemo(
     () => files.filter((file) => file.isStarred && !file.isDeleted),
     [files]
   );
-
-  const handleOpenMenu = (event) => setMenuEl(event.currentTarget);
-  const handleCloseMenu = () => setMenuEl(null);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -152,16 +167,21 @@ function Starred() {
             {formatDate(file.lastAccessedAt || file.uploadedAt)}
           </Box>
 
-          <IconButton onClick={handleOpenMenu}>
+         <IconButton onClick={(e) => handleOpenMenu(e, file)}>
             <MoreVertIcon sx={{ color: "#5f6368" }} />
           </IconButton>
+
         </Box>
       ))}
 
-      <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleCloseMenu}>Open</MenuItem>
-        <MenuItem onClick={handleCloseMenu}>Remove from Starred</MenuItem>
-      </Menu>
+      <FileKebabMenu
+        anchorEl={menuEl}
+        anchorPosition={menuPosition}
+        open={Boolean(menuEl)}
+        onClose={handleCloseMenu}
+        selectedFile={selectedFile}
+      />
+
     </Box>
   );
 }
