@@ -21,6 +21,10 @@ function ShareDialog({ open, file, onClose }) {
   const [email, setEmail] = React.useState("");
   const [permission, setPermission] = React.useState("read");
   const [collaborators, setCollaborators] = React.useState([]);
+  const [copied, setCopied] = React.useState(false);
+
+
+  const shareLink = `${window.location.origin}/files/${file?.id}/download`;
 
   // Load collaborators from file
   React.useEffect(() => {
@@ -28,6 +32,17 @@ function ShareDialog({ open, file, onClose }) {
       setCollaborators(file.sharedWith || []);
     }
   }, [file]);
+
+  const handleCopyLink = async () => {
+  try {
+    await navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  } catch (err) {
+    console.error("Copy failed:", err);
+  }
+};
+
 
   // Reset input on close/open
   React.useEffect(() => {
@@ -85,7 +100,7 @@ function ShareDialog({ open, file, onClose }) {
     );
   };
 
-  // 🔵 3. Remove collaborator
+  //  3. Remove collaborator
   const handleRemove = async (col) => {
     await apiClient.patch(`/files/${file.id}/unshare`, {
       userId: col.user._id
@@ -107,7 +122,7 @@ function ShareDialog({ open, file, onClose }) {
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-
+      
       <DialogContent dividers>
         {/* Add collaborator */}
         <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
