@@ -314,6 +314,7 @@ router.get("/", async (req, res) => {
             isDeleted: false,
         })
         .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email")
         .sort({ uploadDate: -1 }); // newest first (descending)
 
         res.json(files);
@@ -557,6 +558,7 @@ router.get("/list/mydrive", async (req, res) => {
             folderId: null
         })
         .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email")
         .sort({ filename: 1 });
 
         res.json(files);
@@ -574,7 +576,9 @@ router.get("/list/folder/:folderId", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             folderId: req.params.folderId
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email");
 
         res.json(files);
     } catch (err) {
@@ -591,7 +595,9 @@ router.get("/list/starred", async (req, res) => {
             owner: req.user._id,
             isDeleted: false,
             isStarred: true
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email");
 
         res.json(files);
     } catch (err) {
@@ -607,7 +613,9 @@ router.get("/list/trash", async (req, res) => {
         const files = await File.find({
             owner: req.user._id,
             isDeleted: true
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email");
 
         res.json(files);
     } catch (err) {
@@ -625,6 +633,7 @@ router.get("/list/recent", async (req, res) => {
             isDeleted: false
         })
         .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email")
         .sort({ lastAccessed: -1 })
         .limit(20); //check if its for all 
 
@@ -729,7 +738,9 @@ router.get("/shared", async (req, res) => {
         const files = await File.find({
             "sharedWith.user": req.user._id,
             isDeleted: false
-        }).populate("owner", OWNER_FIELDS);
+        })
+        .populate("owner", OWNER_FIELDS)
+        .populate("sharedWith.user", "firstName lastName email");
 
         res.json(files);
 
@@ -738,6 +749,36 @@ router.get("/shared", async (req, res) => {
         res.status(500).json({ message: "Server error fetching shared files" });
     }
 });
+
+// PATCH /files/:id/description
+router.patch("/:id/description", async (req, res) => {
+    try {
+        const { description } = req.body;
+
+        if (!req.user) 
+            return res.status(401).json({ message: "Not authenticated" });
+
+        if (typeof description !== "string")
+            return res.status(400).json({ message: "Invalid description" });
+
+        const updated = await File.findOneAndUpdate(
+            { _id: req.params.id, owner: req.user._id },
+            { $set: { description: description.trim() } },
+            { new: true }
+        ).populate("owner", OWNER_FIELDS)
+         .populate("sharedWith.user", "name email picture");
+
+        if (!updated)
+            return res.status(404).json({ message: "File not found" });
+
+        res.json({ message: "Description updated", file: updated });
+
+    } catch (err) {
+        console.error("PATCH /description error:", err);
+        res.status(500).json({ message: "Server error updating description" });
+    }
+});
+
 
 
 module.exports = router;

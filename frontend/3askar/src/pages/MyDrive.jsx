@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Box, Typography, IconButton, Grid, Paper } from "@mui/material";
 import MenuBar from "../components/MenuBar";
 import FolderIcon from "@mui/icons-material/Folder";
@@ -10,6 +10,7 @@ import { useFiles } from "../context/fileContext.jsx";
 import FileKebabMenu from "../components/FileKebabMenu";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
+import DetailsPanel from "../components/DetailsPanel.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -22,6 +23,10 @@ const formatDate = (value) => {
 };
 
 function MyDrive() {
+  // DETAILS PANEL
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+
   const { files, loading, error, toggleStar, renameFile } = useFiles();
 
   const [viewMode, setViewMode] = React.useState("list");
@@ -46,6 +51,14 @@ function MyDrive() {
     setSelectedFile(null);
   };
 
+    useEffect(() => {
+    if (!detailsFile) return;
+  
+    const updated = files.find(f => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [files]);
+  
+
   const driveFiles = React.useMemo(
     () =>
       files.filter(
@@ -65,6 +78,9 @@ function MyDrive() {
       <Typography sx={{ p: 2, color: "#d93025" }}>{error}</Typography>
     );
   }
+
+
+
 
   return (
     <Box
@@ -273,20 +289,38 @@ function MyDrive() {
       )}
 
       {/* FILE KEbab Menu */}
-      <FileKebabMenu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={closeMenu}
-        selectedFile={selectedFile}
-        onStartRename={(file) => {
-          setFileToRename(file);
-          setRenameDialogOpen(true);
-        }}
-        onStartShare={(file) => {
-          setFileToShare(file);
-          setShareDialogOpen(true);
-        }}
-      />
+    <FileKebabMenu
+      anchorEl={menuAnchorEl}
+      open={Boolean(menuAnchorEl)}
+      onClose={closeMenu}
+      selectedFile={selectedFile}
+      onStartRename={(file) => {
+        setFileToRename(file);
+        setRenameDialogOpen(true);
+      }}
+      onStartShare={(file) => {
+        setFileToShare(file);
+        setShareDialogOpen(true);
+      }}
+      onViewDetails={(file) => {
+        setDetailsFile(file);
+        setDetailsPanelOpen(true);
+      }}
+    />
+
+    <DetailsPanel
+      open={detailsPanelOpen}
+      file={detailsFile}
+      onClose={() => setDetailsPanelOpen(false)}
+      onManageAccess={(file) => {
+        setDetailsPanelOpen(false);
+        setFileToShare(file);
+        setShareDialogOpen(true);
+      }}
+    />
+
+
+
 
       {/* Rename Dialog */}
       <RenameDialog
