@@ -28,7 +28,7 @@ function MyDrive() {
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
 
-  const { files, loading, error, toggleStar, renameFile } = useFiles();
+  // const { files, loading, error, toggleStar, renameFile } = useFiles();
 
   const [viewMode, setViewMode] = React.useState("list");
 
