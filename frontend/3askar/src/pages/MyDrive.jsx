@@ -16,19 +16,18 @@ const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
 
 const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "";
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "—";
+  if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toLocaleDateString();
 };
 
 function MyDrive() {
   const { filteredFiles, loading, error, toggleStar, renameFile } = useFiles();
+
   // DETAILS PANEL
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
-
-  // const { files, loading, error, toggleStar, renameFile } = useFiles();
 
   const [viewMode, setViewMode] = React.useState("list");
 
@@ -52,7 +51,21 @@ function MyDrive() {
     setSelectedFile(null);
   };
 
-  const driveFiles = filteredFiles;
+  useEffect(() => {
+    if (!detailsFile) return;
+    const updated = filteredFiles.find((f) => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [filteredFiles, detailsFile]);
+
+  const driveFiles = React.useMemo(
+    () =>
+      filteredFiles.filter(
+        (file) =>
+          !file.isDeleted &&
+          (file.location?.toLowerCase() === "my drive" || !file.location)
+      ),
+    [filteredFiles]
+  );
 
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading files...</Typography>;
@@ -63,9 +76,6 @@ function MyDrive() {
       <Typography sx={{ p: 2, color: "#d93025" }}>{error}</Typography>
     );
   }
-
-
-
 
   return (
     <Box
@@ -84,7 +94,7 @@ function MyDrive() {
         My Drive
       </Typography>
 
-      <MenuBar visibleFiles={driveFiles} />
+      <MenuBar />
 
       {driveFiles.length === 0 ? (
         <Typography sx={{ p: 4, color: "#5f6368" }}>
@@ -274,38 +284,35 @@ function MyDrive() {
       )}
 
       {/* FILE KEbab Menu */}
-    <FileKebabMenu
-      anchorEl={menuAnchorEl}
-      open={Boolean(menuAnchorEl)}
-      onClose={closeMenu}
-      selectedFile={selectedFile}
-      onStartRename={(file) => {
-        setFileToRename(file);
-        setRenameDialogOpen(true);
-      }}
-      onStartShare={(file) => {
-        setFileToShare(file);
-        setShareDialogOpen(true);
-      }}
-      onViewDetails={(file) => {
-        setDetailsFile(file);
-        setDetailsPanelOpen(true);
-      }}
-    />
+      <FileKebabMenu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={closeMenu}
+        selectedFile={selectedFile}
+        onStartRename={(file) => {
+          setFileToRename(file);
+          setRenameDialogOpen(true);
+        }}
+        onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+        onViewDetails={(file) => {
+          setDetailsFile(file);
+          setDetailsPanelOpen(true);
+        }}
+      />
 
-    <DetailsPanel
-      open={detailsPanelOpen}
-      file={detailsFile}
-      onClose={() => setDetailsPanelOpen(false)}
-      onManageAccess={(file) => {
-        setDetailsPanelOpen(false);
-        setFileToShare(file);
-        setShareDialogOpen(true);
-      }}
-    />
-
-
-
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => setDetailsPanelOpen(false)}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+      />
 
       {/* Rename Dialog */}
       <RenameDialog

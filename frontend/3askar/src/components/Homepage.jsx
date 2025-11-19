@@ -34,6 +34,11 @@ import DetailsPanel from "./DetailsPanel.jsx";
 import ShareDialog from "./ShareDialog.jsx";
 
 function Homepage({ initialView = "MY_DRIVE" }) {
+  const { files, loading } = useFiles();
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
   const [viewMode, setViewMode] = React.useState("list");
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
@@ -71,7 +76,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     setSelectedFile(null);
   };
 
-  const recentFiles = [...filteredFiles]
+  const recentFiles = [...files]
     .filter((file) => !file.isDeleted)
     .sort((a, b) => new Date(b.lastAccessedAt) - new Date(a.lastAccessedAt))
     .slice(0, 20);
@@ -101,7 +106,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
   const [currentView, setCurrentView] = React.useState(initialView);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentFolderId(folderId || null);
   }, [folderId]);
 
@@ -141,11 +146,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadFoldersForCurrentView();
   }, [currentView, currentFolderId]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentView === "STARRED") {
       setBreadcrumb([{ _id: null, name: "Starred" }]);
       setBreadcrumbLoading(false);
@@ -360,14 +365,14 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
   const updated = files.find(f => f.id === selectedFile.id);
   if (updated) setSelectedFile(updated);
-}, [files]);
+}, [files, selectedFile]);
 
-useEffect(() => {
-  if (!detailsFile) return;
+  useEffect(() => {
+    if (!detailsFile) return;
 
-  const updated = files.find(f => f.id === detailsFile.id);
-  if (updated) setDetailsFile(updated);
-}, [files]);
+    const updated = files.find(f => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [files, detailsFile]);
 
 
 
