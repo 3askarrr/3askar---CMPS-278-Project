@@ -32,6 +32,7 @@ function FileKebabMenu({
   isInTrash,
   onFolderShare,
   onFolderDetails,
+  onDownloadFolder,
 }) {
   const { moveToTrash, toggleStar, renameFile, downloadFile, copyFile } =
     useFiles();
@@ -55,11 +56,14 @@ function FileKebabMenu({
   // -------------------- ACTIONS --------------------
 
   const handleDownload = () => {
-    if (!isFolderMenu && selectedFile) {
+    if (isFolderMenu) {
+      onDownloadFolder?.();
+    } else if (selectedFile) {
       downloadFile(selectedFile);
     }
     onClose?.();
   };
+
 
   const handleRename = () => {
     if (isFolderMenu) {

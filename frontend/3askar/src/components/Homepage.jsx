@@ -27,11 +27,22 @@ import {
   getRecentFolders,
   copyFolder,
   getFolder,
+  downloadFolderZip,
 } from "../api/foldersApi";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useFiles } from "../context/fileContext.jsx";
 import FolderDetailsPanel from "./FolderDetailsPanel";
 import RenameDialog from "./RenameDialog.jsx";
+
+
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleDateString();
+};
+
 
 function Homepage({ initialView = "MY_DRIVE" }) {
   const { files, loading } = useFiles();
@@ -145,6 +156,12 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     );
   };
 
+  const handleDownloadFolder = () => {
+    if (!selectedFolder) return;
+    downloadFolderZip(selectedFolder.publicId || selectedFolder._id);
+  };
+
+
   const { folderId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,6 +186,37 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
   const isMyDriveRoot = currentView === "MY_DRIVE" && currentFolderId === null;
   const isFolderView = currentView === "MY_DRIVE" && currentFolderId !== null;
+
+  // last breadcrumb item is the current folder
+  const currentFolderObjectId =
+    isFolderView && !breadcrumbLoading && breadcrumb.length > 0
+      ? breadcrumb[breadcrumb.length - 1]?._id
+      : null;
+
+  const filesInCurrentFolder = React.useMemo(() => {
+    if (!isFolderView || !currentFolderObjectId) return [];
+
+    const folderIdString = currentFolderObjectId.toString();
+
+    return files.filter((f) => {
+      if (f.isDeleted) return false;
+
+      // only My Drive files
+      if (
+        !(
+          (f.location?.toLowerCase() === "my drive") ||
+          !f.location
+        )
+      ) {
+        return false;
+      }
+
+      if (!f.folderId) return false;
+      return f.folderId.toString() === folderIdString;
+    });
+  }, [files, isFolderView, currentFolderObjectId]);
+
+
 
   const loadFoldersForCurrentView = async () => {
     try {
@@ -641,6 +689,137 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         </AccordionDetails>
       </Accordion>
 
+    {/* FILES IN CURRENT FOLDER – only in folder view */}
+    {isFolderView && (
+      <Accordion
+        defaultExpanded
+        disableGutters
+        square
+        sx={{
+          backgroundColor: "transparent",
+          boxShadow: "none",
+          "&:before": { display: "none" },
+          mt: 3,
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon sx={{ color: "#5f6368" }} />}
+          sx={{
+            backgroundColor: "#ffffff",
+            borderRadius: "9999px",
+            px: 1.5,
+            py: 0.5,
+            width: "fit-content",
+            transition: "all 0.2s ease",
+            "& .MuiAccordionSummary-content": {
+              marginY: 0,
+              marginLeft: 0.5,
+            },
+            "&:hover": {
+              backgroundColor: "#e8f0fe",
+              "& .MuiTypography-root": { color: "#1a73e8" },
+              "& .MuiSvgIcon-root": { color: "#1a73e8" },
+            },
+          }}
+        >
+          <Typography sx={{ fontWeight: 600, color: "#202124" }}>
+            Files in this folder
+          </Typography>
+        </AccordionSummary>
+
+        <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
+          {filesInCurrentFolder.length === 0 ? (
+            <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+              This folder has no files yet.
+            </Typography>
+          ) : (
+            <>
+              <Box
+                sx={{
+                  display: "flex",
+                  px: 2,
+                  py: 1,
+                  borderBottom: "1px solid #e0e0e0",
+                  color: "#5f6368",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}
+              >
+                <Box sx={{ flex: 3 }}>Name</Box>
+                <Box sx={{ flex: 2 }}>Owner</Box>
+                <Box sx={{ flex: 2 }}>Date modified</Box>
+                <Box sx={{ width: 40 }} />
+              </Box>
+
+              {filesInCurrentFolder.map((file) => (
+                <Box
+                  key={file.id}
+                  onContextMenu={(e) => handleContextMenu(e, file)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2,
+                    py: 1.5,
+                    borderBottom: "1px solid #f1f3f4",
+                    cursor: "pointer",
+                    "&:hover": { backgroundColor: "#f8f9fa" },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      flex: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                    }}
+                  >
+                    <img
+                      src={file.icon || DEFAULT_FILE_ICON}
+                      alt="file icon"
+                      width={20}
+                      height={20}
+                    />
+                    <Typography sx={{ fontWeight: 500 }}>
+                      {file.name}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 2 }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {file.owner || "Unknown"}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 2 }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      width: 40,
+                      display: "flex",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuButtonClick(e, file)}
+                    >
+                      <MoreVertIcon sx={{ color: "#5f6368" }} />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))}
+            </>
+          )}
+        </AccordionDetails>
+      </Accordion>
+    )}
+
+        
+
       {/* SUGGESTED FILES ACCORDION – ONLY ON MY DRIVE ROOT */}
       {isMyDriveRoot && (
         <Accordion
@@ -906,6 +1085,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           /* we'll wire real sharing later */
         }}
         onFolderDetails={handleFolderDetails}
+        onDownloadFolder={handleDownloadFolder}
       />
 
       <FileKebabMenu
