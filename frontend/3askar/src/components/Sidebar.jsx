@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { createFolder } from "../api/foldersApi";
 import { useFiles } from "../context/fileContext.jsx";
 
 import {
@@ -40,10 +41,14 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CreateNewFolderOutlinedIcon from '@mui/icons-material/CreateNewFolderOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import DriveFolderUploadOutlinedIcon from '@mui/icons-material/DriveFolderUploadOutlined';
+import NewFolderDialog from "../context/NewFolderDialog.jsx";
+
 
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { folderId } = useParams();
   const [width, setWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
   const [active, setActive] = useState("home"); // if any element in sidebar is selected 
@@ -59,6 +64,9 @@ const [openDrive, setOpenDrive] = useState(false);
 const [openComputers, setOpenComputers] = useState(false);
 
 const connectedDevices = []; // no devices for now (placeholder)
+
+const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
+
 
 
     // Sidebar Resizing line
@@ -114,9 +122,42 @@ const connectedDevices = []; // no devices for now (placeholder)
     const handleCloseNewMenu = () => setNewMenuEl(null);
 
     const handleCreateFolder = () => {
-      // TODO: replace with actual create-folder action in backend
-      console.log("Create new folder clicked");
+      // just open the dialog instead of using window.prompt
+      setNewFolderDialogOpen(true);
     };
+
+
+
+    const handleSidebarCreateFolderSubmit = async (name) => {
+      if (!name || !name.trim()) {
+        setNewFolderDialogOpen(false);
+        return;
+      }
+
+      // figure out which folder we’re in from the URL
+      let parentFolder = null;
+
+      // when you are inside /folders/:folderId, use that as parent
+      if (location.pathname.startsWith("/folders/") && folderId) {
+        parentFolder = folderId; // this is the publicId you navigated with
+      }
+
+      try {
+        await createFolder({
+          name: name.trim(),
+          parentFolder, // null = root, id = current folder
+        });
+
+        // optional: reload or navigate so new folder shows immediately
+        // navigate(0);
+      } catch (err) {
+        console.error("Failed to create folder from sidebar:", err);
+        alert(err.message || "Failed to create folder");
+      } finally {
+        setNewFolderDialogOpen(false);
+      }
+    };
+
 
     const triggerFileUpload = () => fileInputRef.current?.click();
     const triggerFolderUpload = () => folderInputRef.current?.click();
@@ -415,6 +456,13 @@ const connectedDevices = []; // no devices for now (placeholder)
           }}
           onMouseDown={handleMouseDown}
         />
+
+        <NewFolderDialog
+          open={newFolderDialogOpen}
+          onClose={() => setNewFolderDialogOpen(false)}
+          onSubmit={handleSidebarCreateFolderSubmit}
+        />
+
     </Box>
     );
 
