@@ -58,12 +58,14 @@ function MyDrive() {
   }, [filteredFiles, detailsFile]);
 
   const driveFiles = React.useMemo(
-    () =>
-      filteredFiles.filter(
+    () => {
+      if (!Array.isArray(filteredFiles)) return [];
+      return filteredFiles.filter(
         (file) =>
           !file.isDeleted &&
           (file.location?.toLowerCase() === "my drive" || !file.location)
-      ),
+      );
+    },
     [filteredFiles]
   );
 

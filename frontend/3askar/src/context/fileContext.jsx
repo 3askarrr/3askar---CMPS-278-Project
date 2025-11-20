@@ -49,6 +49,25 @@ const resolveIcon = (filename = "", mime = "") => {
   return match?.icon ?? DEFAULT_FILE_ICON;
 };
 
+const LOG_ENABLED = false;
+const nowIso = () => new Date().toISOString();
+const timer = () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());
+const logEvent = (label, detail = {}) => {
+  if (!LOG_ENABLED) return;
+  console.info(`[FileContext][${nowIso()}] ${label}`, detail);
+};
+const startSpan = (label, detail = {}) => {
+  if (!LOG_ENABLED) return () => {};
+  const started = timer();
+  logEvent(`${label}:start`, detail);
+  return (extra = {}) =>
+    logEvent(`${label}:end`, {
+      durationMs: Number((timer() - started).toFixed(1)),
+      ...detail,
+      ...extra,
+    });
+};
+
 const USE_MOCK_DATA = false; //flip to false 
 
 const MOCK_FILES = [
@@ -161,7 +180,7 @@ export const FileProvider = ({ children }) => {
   const filesRef = useRef([]);
   const trashRef = useRef([]);
 
-  const { user } = useAuth() || {};
+  const { user, loading: authLoading } = useAuth() || {};
   const currentUserId = user?._id ? user._id.toString() : null;
   const currentUserEmail =
     typeof user?.email === "string" ? user.email.toLowerCase() : null;
@@ -175,6 +194,21 @@ export const FileProvider = ({ children }) => {
   }, [trashFiles]);
 
   const fetchCollections = useCallback(async () => {
+    if (authLoading) {
+      logEvent("fetchCollections:skip-auth-loading");
+      return;
+    }
+
+    if (!currentUserId && !currentUserEmail) {
+      logEvent("fetchCollections:skip-no-user");
+      setLoading(false);
+      return;
+    }
+
+    const finish = startSpan("fetchCollections", {
+      currentUserId,
+      currentUserEmail,
+    });
     setLoading(true);
 
     if (USE_MOCK_DATA) {
@@ -195,10 +229,26 @@ export const FileProvider = ({ children }) => {
 
       setError(null);
       setLoading(false);
+      finish({
+        mode: "mock",
+        counts: {
+          files: normalized.filter((file) => !file.isDeleted).length,
+          trash: normalized.filter((file) => file.isDeleted).length,
+          shared:
+            normalized.filter(
+              (file) =>
+                file.location?.toLowerCase() === "shared with me" ||
+                (file.sharedWith?.length ?? 0) > 0
+            ).length || 0,
+        },
+      });
       return;
     }
 
     try {
+      logEvent("fetchCollections:requesting", {
+        endpoints: ["/files", "/files/list/trash", "/files/shared"],
+      });
       const [owned, trash, shared] = await Promise.all([
         apiClient.get("/files"),
         apiClient.get("/files/list/trash"),
@@ -208,6 +258,14 @@ export const FileProvider = ({ children }) => {
       setFiles((owned.data || []).map(normalizeFile).filter(Boolean));
       setTrashFiles((trash.data || []).map(normalizeFile).filter(Boolean));
       setSharedFiles((shared.data || []).map(normalizeFile).filter(Boolean));
+      finish({
+        mode: "api",
+        counts: {
+          files: owned.data?.length ?? 0,
+          trash: trash.data?.length ?? 0,
+          shared: shared.data?.length ?? 0,
+        },
+      });
       setError(null);
     } catch (err) {
       setError(
@@ -215,18 +273,37 @@ export const FileProvider = ({ children }) => {
           err.message ||
           "Unable to load files at the moment."
       );
+      logEvent("fetchCollections:error", {
+        message: err.message,
+        response: err.response,
+      });
+      finish({ mode: "api", error: err.message });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authLoading, currentUserEmail, currentUserId]);
 
   useEffect(() => {
     fetchCollections();
   }, [fetchCollections]);
 
+  // If a refresh was requested while no user was present, replay it once auth is ready
+  useEffect(() => {
+    if (authLoading) return;
+    if (pendingRefresh.current && (currentUserId || currentUserEmail)) {
+      logEvent("fetchCollections:pending-refresh");
+      pendingRefresh.current = false;
+      fetchCollections();
+    }
+  }, [authLoading, currentUserEmail, currentUserId, fetchCollections]);
+
   const toggleStar = useCallback(async (id) => {
+    const finish = startSpan("toggleStar", { id });
     const existing = filesRef.current.find((file) => file.id === id);
-    if (!existing) return;
+    if (!existing) {
+      finish({ status: "skip-missing-file" });
+      return;
+    }
 
     const nextState = !existing.isStarred;
 
@@ -236,10 +313,14 @@ export const FileProvider = ({ children }) => {
       )
     );
 
-    if (USE_MOCK_DATA) return;
+    if (USE_MOCK_DATA) {
+      finish({ status: "mock", nextState });
+      return;
+    }
 
     try {
       await apiClient.patch(`/files/${id}/star`, { isStarred: nextState });
+      finish({ status: "ok", nextState });
     } catch (err) {
       setFiles((prev) =>
         prev.map((file) =>
@@ -248,65 +329,105 @@ export const FileProvider = ({ children }) => {
       );
 
       setError("Unable to update star. Try again.");
+      logEvent("toggleStar:error", {
+        id,
+        message: err.message,
+        response: err.response,
+      });
+      finish({ status: "error", nextState, error: err.message });
     }
   }, []);
 
   const moveToTrash = useCallback(async (id) => {
+    const finish = startSpan("moveToTrash", { id });
     const existing = filesRef.current.find((file) => file.id === id);
-    if (!existing) return;
+    if (!existing) {
+      finish({ status: "skip-missing-file" });
+      return;
+    }
 
     setFiles((prev) => prev.filter((file) => file.id !== id));
     setTrashFiles((prev) => [{ ...existing, isDeleted: true }, ...prev]);
 
-    if (USE_MOCK_DATA) return;
+    if (USE_MOCK_DATA) {
+      finish({ status: "mock" });
+      return;
+    }
 
     try {
       await apiClient.patch(`/files/${id}/trash`, { isDeleted: true });
+      finish({ status: "ok" });
     } catch {
       setFiles((prev) => [existing, ...prev]);
       setTrashFiles((prev) => prev.filter((file) => file.id !== id));
       setError("Unable to move file to bin.");
+      logEvent("moveToTrash:error", { id });
+      finish({ status: "error" });
     }
   }, []);
 
   const restoreFromBin = useCallback(async (id) => {
+    const finish = startSpan("restoreFromBin", { id });
     const existing = trashRef.current.find((file) => file.id === id);
-    if (!existing) return;
+    if (!existing) {
+      finish({ status: "skip-missing-file" });
+      return;
+    }
 
     setTrashFiles((prev) => prev.filter((file) => file.id !== id));
     setFiles((prev) => [{ ...existing, isDeleted: false }, ...prev]);
 
-    if (USE_MOCK_DATA) return;
+    if (USE_MOCK_DATA) {
+      finish({ status: "mock" });
+      return;
+    }
 
     try {
       await apiClient.patch(`/files/${id}/trash`, { isDeleted: false });
+      finish({ status: "ok" });
     } catch {
       setTrashFiles((prev) => [existing, ...prev]);
       setFiles((prev) => prev.filter((file) => file.id !== id));
       setError("Unable to restore file.");
+      logEvent("restoreFromBin:error", { id });
+      finish({ status: "error" });
     }
   }, []);
 
   const deleteForever = useCallback(async (id) => {
+    const finish = startSpan("deleteForever", { id });
     const existing = trashRef.current.find((file) => file.id === id);
-    if (!existing) return;
+    if (!existing) {
+      finish({ status: "skip-missing-file" });
+      return;
+    }
 
     setTrashFiles((prev) => prev.filter((file) => file.id !== id));
 
-    if (USE_MOCK_DATA) return;
+    if (USE_MOCK_DATA) {
+      finish({ status: "mock" });
+      return;
+    }
 
     try {
       await apiClient.delete(`/files/${id}/permanent`);
+      finish({ status: "ok" });
     } catch {
       setTrashFiles((prev) => [existing, ...prev]);
       setError("Unable to delete file permanently.");
+      logEvent("deleteForever:error", { id });
+      finish({ status: "error" });
     }
   }, []);
 
   const renameFile = useCallback(
     async (id, newName) => {
+      const finish = startSpan("renameFile", { id, newName });
       const trimmed = newName?.trim();
-      if (!trimmed) return;
+      if (!trimmed) {
+        finish({ status: "skip-empty-name" });
+        return;
+      }
 
       const allFiles = [
         ...filesRef.current,
@@ -314,7 +435,10 @@ export const FileProvider = ({ children }) => {
         ...sharedFiles,
       ];
       const existing = allFiles.find((file) => file.id === id);
-      if (!existing) return;
+      if (!existing) {
+        finish({ status: "skip-missing-file" });
+        return;
+      }
 
       const applyRename = (collection, name) =>
         collection.map((file) => (file.id === id ? { ...file, name } : file));
@@ -327,31 +451,44 @@ export const FileProvider = ({ children }) => {
 
       try {
         await apiClient.patch(`/files/${id}/rename`, { newName: trimmed });
+        finish({ status: "ok" });
       } catch {
         setFiles((prev) => applyRename(prev, existing.name));
         setSharedFiles((prev) => applyRename(prev, existing.name));
         setTrashFiles((prev) => applyRename(prev, existing.name));
         setError("Unable to rename file.");
+        logEvent("renameFile:error", { id, attempted: trimmed });
+        finish({ status: "error" });
       }
     },
     [sharedFiles]
   );
 
   const downloadFile = useCallback((file) => {
-    if (!file?.gridFsId) return;
+    const finish = startSpan("downloadFile", { id: file?.id, name: file?.name });
+    if (!file?.gridFsId) {
+      finish({ status: "skip-no-gridfs" });
+      return;
+    }
 
     if (USE_MOCK_DATA) {
       window.alert("Downloads are unavailable in mock mode.");
+      finish({ status: "mock" });
       return;
     }
 
     const url = `${API_BASE_URL}/files/${file.gridFsId}/download`;
     window.open(url, "_blank", "noopener,noreferrer");
+    finish({ status: "window-opened", url });
   }, []);
 
   const copyFile = useCallback(
     async (target) => {
-      if (!target) return null;
+      const finish = startSpan("copyFile", { target });
+      if (!target) {
+        finish({ status: "skip-no-target" });
+        return null;
+      }
 
       const file =
         typeof target === "string"
@@ -360,7 +497,10 @@ export const FileProvider = ({ children }) => {
             sharedFiles.find((item) => item.id === target)
           : target;
 
-      if (!file?.id) return null;
+      if (!file?.id) {
+        finish({ status: "skip-missing-file" });
+        return null;
+      }
 
       const timestamp = new Date().toISOString();
       const defaultName = `Copy of ${file.name || "Untitled"}`;
@@ -377,6 +517,7 @@ export const FileProvider = ({ children }) => {
         };
 
         setFiles((prev) => [mockCopy, ...prev]);
+        finish({ status: "mock", id: mockCopy.id });
         return mockCopy;
       }
 
@@ -388,13 +529,21 @@ export const FileProvider = ({ children }) => {
         const normalized = normalizeFile(data.file);
         if (normalized) {
           setFiles((prev) => [normalized, ...prev]);
+          finish({ status: "ok", id: normalized.id });
           return normalized;
         }
 
         await fetchCollections();
+        finish({ status: "fallback-refresh" });
         return null;
       } catch (err) {
         setError("Unable to copy file.");
+        logEvent("copyFile:error", {
+          id: file.id,
+          message: err.message,
+          response: err.response,
+        });
+        finish({ status: "error", error: err.message });
         throw err;
       }
     },
@@ -404,12 +553,21 @@ export const FileProvider = ({ children }) => {
   const uploadFiles = useCallback(
     async (selectedFiles, options = {}) => {
       if (!selectedFiles?.length) return [];
+      const finish = startSpan("uploadFiles", {
+        count: selectedFiles.length,
+        options,
+      });
       setUploading(true);
 
       const uploaded = [];
 
       try {
         for (const file of selectedFiles) {
+          const fileSpan = startSpan("uploadFiles:item", {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          });
           if (USE_MOCK_DATA) {
             const mockFile = {
               id: `mock-upload-${Date.now()}-${file.name}`,
@@ -425,6 +583,7 @@ export const FileProvider = ({ children }) => {
 
             uploaded.push(mockFile);
             setFiles((prev) => [mockFile, ...prev]);
+            fileSpan({ status: "mock" });
             continue;
           }
 
@@ -457,16 +616,23 @@ export const FileProvider = ({ children }) => {
           if (normalized) {
             uploaded.push(normalized);
             setFiles((prev) => [normalized, ...prev]);
+            fileSpan({ status: "ok", id: normalized.id });
           } else {
+            fileSpan({ status: "fallback-refresh" });
             await fetchCollections();
           }
         }
       } catch (err) {
         console.error("Upload failed:", err);
         setError("Upload failed.");
+        logEvent("uploadFiles:error", {
+          message: err.message,
+          response: err.response,
+        });
         throw err;
       } finally {
         setUploading(false);
+        finish({ uploaded: uploaded.length });
       }
 
 
@@ -478,6 +644,7 @@ export const FileProvider = ({ children }) => {
 
     const runFileSearch = useCallback(
     async (params = {}) => {
+      const finish = startSpan("runFileSearch", params);
       // Basic guard: if everything is empty, clear search
       const {
         q,
@@ -506,6 +673,7 @@ export const FileProvider = ({ children }) => {
 
       if (!hasSomething) {
         setSearchResults(null);
+        finish({ status: "reset" });
         return;
       }
 
@@ -534,6 +702,7 @@ export const FileProvider = ({ children }) => {
 
         const normalized = (data || []).map(normalizeFile).filter(Boolean);
         setSearchResults(normalized);
+        finish({ status: "ok", results: normalized.length });
         setError(null);
       } catch (err) {
         console.error("runFileSearch error:", err);
@@ -542,6 +711,11 @@ export const FileProvider = ({ children }) => {
             err.message ||
             "Unable to search files right now."
         );
+        logEvent("runFileSearch:error", {
+          message: err.message,
+          response: err.response,
+        });
+        finish({ status: "error", error: err.message });
       } finally {
         setSearching(false);
       }
@@ -551,12 +725,19 @@ export const FileProvider = ({ children }) => {
 
   const clearSearch = useCallback(() => {
     setSearchResults(null);
+    logEvent("search:cleared");
   }, []);
 
 
   const refreshFiles = useCallback(() => {
+    logEvent("refreshFiles:requested");
+    if (!currentUserId && !currentUserEmail) {
+      pendingRefresh.current = true;
+      logEvent("refreshFiles:queued-no-user");
+      return;
+    }
     fetchCollections();
-  }, [fetchCollections]);
+  }, [currentUserEmail, currentUserId, fetchCollections]);
 
   const matchesCurrentUser = useCallback(
     (file) => {
@@ -645,6 +826,7 @@ export const FileProvider = ({ children }) => {
   const [peopleFilter, setPeopleFilter] = useState(null);
   const [modifiedFilter, setModifiedFilter] = useState(null);
   const [sourceFilter, setSourceFilter] = useState(null);
+  const pendingRefresh = useRef(false);
 
   const filterByModified = useCallback(
     (list) => {
