@@ -209,7 +209,14 @@ router.post("/move", async (req, res) => {
     // Update Folders
     if (folderIds.length > 0) {
       for (const folderId of folderIds) {
-        const folder = await Folder.findOne({ _id: folderId, owner: userId });
+        let folder = null;
+        const looksLikeObjectId = mongoose.Types.ObjectId.isValid(folderId);
+        if (looksLikeObjectId) {
+          folder = await Folder.findOne({ _id: folderId, owner: userId });
+        }
+        if (!folder) {
+          folder = await Folder.findOne({ publicId: folderId, owner: userId });
+        }
         if (!folder) continue;
 
         folder.parentFolder = newParentId;

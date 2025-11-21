@@ -286,6 +286,7 @@ const BatchToolbar = ({ toolbarSource, visibleItems = [] }) => {
         onClose={() => setMoveDialogOpen(false)}
         onMove={handleMoveConfirm}
         selectedCount={count}
+        excludedFolderIds={selectedVisibleFolders}
       />
 
       <BatchShareDialog

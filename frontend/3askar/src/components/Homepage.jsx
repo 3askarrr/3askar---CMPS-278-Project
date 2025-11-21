@@ -302,7 +302,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   const unifiedItems = React.useMemo(() => {
     if (currentView !== "MY_DRIVE") return [];
 
-    const folders = rootFolders.map(f => ({ ...f, type: 'folder' }));
+    // rootFolders contains folders for the current context (root or subfolder)
+    const folders = rootFolders.map(f => ({ ...f, id: f.id || f.publicId || f._id, type: 'folder' }));
     const files = filesInCurrentFolder.map(f => ({ ...f, type: 'file' }));
 
     // Sort: Folders first, then files. Within each type, sort by name.
@@ -696,9 +697,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       </Box>
 
       {selectedFiles.size > 0 || selectedFolders.size > 0 ? (
-        <BatchToolbar />
+        <BatchToolbar
+          visibleItems={currentView === "MY_DRIVE" ? unifiedItems : [...rootFolders.map(f => ({ ...f, id: f.id || f.publicId || f._id, type: 'folder' })), ...allFiles.map(f => ({ ...f, type: 'file' }))]}
+        />
       ) : (
-        <MenuBar visibleFiles={recentFiles} />
+        <MenuBar visibleFiles={allFiles} />
       )}
 
       {/* FOLDERS ACCORDION - ONLY FOR HOME OR OTHER VIEWS, NOT MY_DRIVE (UNIFIED) */}
