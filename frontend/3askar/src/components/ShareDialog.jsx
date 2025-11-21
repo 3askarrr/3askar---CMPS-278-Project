@@ -34,14 +34,14 @@ function ShareDialog({ open, file, onClose }) {
   }, [file]);
 
   const handleCopyLink = async () => {
-  try {
-    await navigator.clipboard.writeText(shareLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  } catch (err) {
-    console.error("Copy failed:", err);
-  }
-};
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
 
 
   // Reset input on close/open
@@ -88,8 +88,8 @@ function ShareDialog({ open, file, onClose }) {
       } catch (shareErr) {
         const status = shareErr?.response?.status;
         const msg = shareErr?.response?.data?.message || "";
-        if (status === 404 && /file not found/i.test(msg)) {
-          alert("Unable to share: you must be the file owner to add collaborators.");
+        if ((status === 404 && /file not found/i.test(msg)) || status === 403) {
+          alert("Unable to share: you must be the owner or have write permission.");
         } else if (status === 400) {
           alert(msg || "Invalid share request.");
         } else {
@@ -146,7 +146,7 @@ function ShareDialog({ open, file, onClose }) {
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         {/* Add collaborator */}
         <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
@@ -196,42 +196,42 @@ function ShareDialog({ open, file, onClose }) {
           collaborators
             .filter((col) => col.user && typeof col.user === 'object' && col.user.email)
             .map((col, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                mb: 2,
-                p: 1,
-                borderRadius: 2,
-                "&:hover": { backgroundColor: "#f8f9fa" }
-              }}
-            >
-              <Avatar sx={{ mr: 2 }}>
-                {col.user?.email?.charAt(0).toUpperCase() || '?'}
-              </Avatar>
-
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography sx={{ fontWeight: 500 }}>
-                  {col.user?.email || 'Unknown User'}
-                </Typography>
-              </Box>
-
-              <Select
-                size="small"
-                value={col.permission}
-                onChange={(e) => handlePermissionChange(col, e.target.value)}
-                sx={{ mr: 2, width: 120 }}
+              <Box
+                key={index}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  mb: 2,
+                  p: 1,
+                  borderRadius: 2,
+                  "&:hover": { backgroundColor: "#f8f9fa" }
+                }}
               >
-                <MenuItem value="read">Read</MenuItem>
-                <MenuItem value="write">Write</MenuItem>
-              </Select>
+                <Avatar sx={{ mr: 2 }}>
+                  {col.user?.email?.charAt(0).toUpperCase() || '?'}
+                </Avatar>
 
-              <IconButton onClick={() => handleRemove(col)}>
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          ))
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography sx={{ fontWeight: 500 }}>
+                    {col.user?.email || 'Unknown User'}
+                  </Typography>
+                </Box>
+
+                <Select
+                  size="small"
+                  value={col.permission}
+                  onChange={(e) => handlePermissionChange(col, e.target.value)}
+                  sx={{ mr: 2, width: 120 }}
+                >
+                  <MenuItem value="read">Read</MenuItem>
+                  <MenuItem value="write">Write</MenuItem>
+                </Select>
+
+                <IconButton onClick={() => handleRemove(col)}>
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+            ))
         )}
       </DialogContent>
 

@@ -184,6 +184,7 @@ function Shared() {
             file={file}
             toggleStar={toggleStar}
             openShareDialog={openShareDialog}
+            showShare={true}
             openRenameDialog={openRenameDialog}
             openMenu={openMenu}
             downloadFile={downloadFile}
