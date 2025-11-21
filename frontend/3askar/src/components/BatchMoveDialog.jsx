@@ -21,7 +21,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import apiClient from "../services/apiClient";
 
-const BatchMoveDialog = ({ open, onClose, onMove, selectedCount }) => {
+const BatchMoveDialog = ({ open, onClose, onMove, selectedCount, excludedFolderIds = [] }) => {
   const [currentFolderId, setCurrentFolderId] = useState(null); // null root
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -163,9 +163,22 @@ const BatchMoveDialog = ({ open, onClose, onMove, selectedCount }) => {
           </Typography>
         );
       }
+      // Filter out excluded folders from search results
+      const filteredSearchResults = searchResults.filter(folder => {
+        const folderId = folder._id || folder.publicId;
+        return !excludedFolderIds.includes(folderId);
+      });
+
+      if (filteredSearchResults.length === 0) {
+        return (
+          <Typography sx={{ p: 2, color: "text.secondary", textAlign: "center" }}>
+            No available matches
+          </Typography>
+        );
+      }
       return (
         <List>
-          {searchResults.map(folder => (
+          {filteredSearchResults.map(folder => (
             <ListItemButton key={folder._id} onClick={() => handleSearchSelect(folder)} sx={{ borderRadius: 1 }}>
               <ListItemIcon>
                 <FolderIcon sx={{ color: "#5f6368" }} />
@@ -190,9 +203,22 @@ const BatchMoveDialog = ({ open, onClose, onMove, selectedCount }) => {
         </Typography>
       );
     }
+    // Filter out excluded folders
+    const filteredFolders = folders.filter(folder => {
+      const folderId = folder._id || folder.publicId;
+      return !excludedFolderIds.includes(folderId);
+    });
+
+    if (filteredFolders.length === 0) {
+      return (
+        <Typography sx={{ p: 2, color: "text.secondary", textAlign: "center" }}>
+          No available folders
+        </Typography>
+      );
+    }
     return (
       <List>
-        {folders.map(folder => (
+        {filteredFolders.map(folder => (
           <ListItemButton key={folder._id} onClick={() => handleFolderClick(folder)} sx={{ borderRadius: 1 }}>
             <ListItemIcon>
               <FolderIcon sx={{ color: "#5f6368" }} />

@@ -16,6 +16,7 @@ import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import MenuBar from "./MenuBar";
 import BatchToolbar from "./BatchToolbar";
+import BatchMoveDialog from "./BatchMoveDialog";
 import { Checkbox } from "@mui/material";
 import FileKebabMenu from "./FileKebabMenu";
 import {
@@ -38,6 +39,9 @@ import RenameDialog from "./RenameDialog.jsx";
 
 
 
+import DetailsPanel from "./DetailsPanel.jsx";
+import ShareDialog from "./ShareDialog.jsx";
+
 const formatDate = (value) => {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -45,11 +49,8 @@ const formatDate = (value) => {
   return parsed.toLocaleDateString();
 };
 
-import DetailsPanel from "./DetailsPanel.jsx";
-import ShareDialog from "./ShareDialog.jsx";
-
 function Homepage({ initialView = "MY_DRIVE" }) {
-  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles } = useFiles();
+  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles, batchMove } = useFiles();
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
@@ -114,6 +115,10 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   const [newFolderDialogOpen, setNewFolderDialogOpen] =
     React.useState(false);
 
+  // Move Dialog State
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [moveTarget, setMoveTarget] = React.useState(null); // { type: 'file'|'folder', id: string }
+
   const handleFolderMenuOpen = (event, folder) => {
     event.stopPropagation?.();
     setFolderMenuAnchor(event.currentTarget);
@@ -123,6 +128,37 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   const handleFolderMenuClose = () => {
     setFolderMenuAnchor(null);
     setSelectedFolder(null);
+  };
+
+  const handleMoveFolder = (folder) => {
+    // Use folder.id which is the normalized ID from the folder object
+    setMoveTarget({ type: 'folder', id: folder.id || folder._id });
+    setMoveDialogOpen(true);
+  };
+
+  const handleMoveFile = (file) => {
+    setMoveTarget({ type: 'file', id: file.id });
+    setMoveDialogOpen(true);
+  };
+
+  const handleMoveConfirm = async (destinationFolderId) => {
+    if (!moveTarget) return;
+
+    try {
+      if (moveTarget.type === 'folder') {
+        await batchMove([], [moveTarget.id], destinationFolderId);
+      } else {
+        await batchMove([moveTarget.id], [], destinationFolderId);
+      }
+      setMoveDialogOpen(false);
+      setMoveTarget(null);
+      // Refresh folders/files
+      await loadFoldersForCurrentView();
+      await refreshFiles();
+    } catch (err) {
+      console.error("Move failed", err);
+      window.alert("Failed to move item.");
+    }
   };
 
   const handleFolderShare = () => {
@@ -1416,6 +1452,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         onTrash={handleTrashFolder}
         onToggleStar={handleToggleStarFolder}
         onCopy={handleCopyFolder}
+        onMove={() => handleMoveFolder(selectedFolder)}
         isStarred={selectedFolder?.isStarred}
         isInTrash={currentView === "TRASH" || selectedFolder?.isDeleted}
         onFolderShare={handleFolderShare}
@@ -1433,6 +1470,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           setFileToShare(file);
           setShareDialogOpen(true);
         }}
+        onStartMove={handleMoveFile}
         onViewDetails={(file) => {
           setDetailsFile(file);
           setDetailsPanelOpen(true);
@@ -1491,6 +1529,17 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           setCopyTarget(null);
         }}
         onSubmit={handleFolderCopySubmit}
+      />
+
+      <BatchMoveDialog
+        open={moveDialogOpen}
+        onClose={() => {
+          setMoveDialogOpen(false);
+          setMoveTarget(null);
+        }}
+        onMove={handleMoveConfirm}
+        selectedCount={1}
+        excludedFolderIds={moveTarget?.type === 'folder' ? [moveTarget.id] : []}
       />
     </Box>
   );
