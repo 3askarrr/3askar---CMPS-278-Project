@@ -4,6 +4,11 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import HoverActions from "../components/HoverActions.jsx";
+import FileKebabMenu from "../components/FileKebabMenu";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog.jsx";
+import DetailsPanel from "../components/DetailsPanel.jsx";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
@@ -32,11 +37,15 @@ const getSortValue = (file, field) => {
 };
 
 function Shared() {
-  const {
+ const {
     filteredFiles,
     loading,
     error,
     filterBySource,
+    toggleStar,
+    renameFile,
+    downloadFile,
+    canRename,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
@@ -44,9 +53,19 @@ function Shared() {
     clearSelection,
     selectAll,
   } = useFiles();
-
+  
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
+
+  // Dialog states
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+
+  // Menu state
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
   const [selectedFile, setSelectedFile] = React.useState(null);
@@ -115,6 +134,26 @@ function Shared() {
     return data;
   }, [sharedFiles, sortField, sortDirection]);
 
+  // Handlers
+  const openMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedFile(file);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchorEl(null);
+    setSelectedFile(null);
+  };
+
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const openRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
   const selectedCount = React.useMemo(
     () => sortedFiles.reduce((acc, f) => {
       const isFolderItem = isFolder(f);
@@ -231,60 +270,138 @@ function Shared() {
           Nothing has been shared with you yet.
         </Typography>
       ) : (
-        sortedFiles.map((file) => {
-          const selected = isItemSelected(file);
-          return (
-            <Box
-              key={file.id}
-              onContextMenu={(e) => handleContextMenu(e, file)}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid #f1f3f4",
-                ...getRowStyles(selected),
-              }}
-            >
-              <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
-                <Checkbox
-                  size="small"
-                  checked={selected}
-                  onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+          {/* FILE ROWS WITH HOVER MENU + BATCH MODE */}
+          {sortedFiles && sortedFiles.length > 0 && (
+            sortedFiles.map((file) => {
+              const selected = isItemSelected(file);
+
+              return (
+                <HoverActions
+                  key={file.id}
+                  file={file}
+                  toggleStar={toggleStar}
+                  openShareDialog={openShareDialog}
+                  showShare={!isBatchMode}               // 🚫 hide share in batch mode
+                  openRenameDialog={openRenameDialog}
+                  openMenu={(e) => handleMenuButtonClick(e, file)}
+                  downloadFile={downloadFile}
+                  copyFile={copyFile}
+                  formatDate={formatDate}
+                  showRename={!isBatchMode && canRename(file)}    // 🚫 no rename when batch
+                  disabled={isBatchMode}                 // 🚫 disable hover actions in batch
+                  renderContent={(f) => (
+                    <Box
+                      onContextMenu={(e) => handleContextMenu(e, f)}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        px: 2,
+                        py: 1.5,
+                        borderBottom: "1px solid #f1f3f4",
+                        ...getRowStyles(selected),
+                      }}
+                    >
+                      {/* Checkbox ALWAYS visible */}
+                      <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+                        <Checkbox
+                          size="small"
+                          checked={selected}
+                          onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+                        />
+                      </Box>
+
+                      {/* File Icon + Name */}
+                      <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <img
+                          src={f.icon || DEFAULT_FILE_ICON}
+                          width={20}
+                          height={20}
+                          alt="file icon"
+                        />
+                        {f.name}
+                      </Box>
+
+                      {/* Owner */}
+                      <Box sx={{ flex: 3, color: "#5f6368" }}>
+                        {f.owner || "Unknown"}
+                      </Box>
+
+                      {/* Date */}
+                      <Box sx={{ flex: 2, color: "#5f6368" }}>
+                        {formatDate(f.lastAccessedAt || f.uploadedAt)}
+                      </Box>
+
+                      {/* Kebab Icon ONLY in single mode */}
+                      {!isBatchMode && (
+                        <IconButton onClick={(event) => handleMenuButtonClick(event, f)}>
+                          <MoreVertIcon sx={{ color: "#5f6368" }} />
+                        </IconButton>
+                      )}
+                    </Box>
+                  )}
                 />
-              </Box>
-              <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-              <img
-                src={file.icon || DEFAULT_FILE_ICON}
-                width={20}
-                height={20}
-                alt="file icon"
-              />
-              {file.name}
-            </Box>
+              );
+            })
+          )}
 
-            <Box sx={{ flex: 3, color: "#5f6368" }}>
-              {file.owner || "Unknown"}
-            </Box>
+          {/* FILE KEBAB MENU */}
+          <FileKebabMenu
+            anchorEl={menuAnchorEl}
+            anchorPosition={anchorPosition}
+            open={menuOpen}
+            onClose={handleMenuClose}
+            selectedFile={selectedFile}
+            onStartRename={(file) => {
+              setFileToRename(file);
+              setRenameDialogOpen(true);
+            }}
+            onStartShare={(file) => {
+              setFileToShare(file);
+              setShareDialogOpen(true);
+            }}
+            onViewDetails={(file) => {
+              setDetailsFile(file);
+              setDetailsPanelOpen(true);
+            }}
+          />
 
-            <Box sx={{ flex: 2, color: "#5f6368" }}>
-              {formatDate(file.lastAccessedAt || file.uploadedAt)}
-            </Box>
+          {/* DETAILS PANEL */}
+          <DetailsPanel
+            open={detailsPanelOpen}
+            file={detailsFile}
+            onClose={() => setDetailsPanelOpen(false)}
+            onManageAccess={(file) => {
+              setDetailsPanelOpen(false);
+              setFileToShare(file);
+              setShareDialogOpen(true);
+            }}
+          />
 
-            <IconButton onClick={(event) => handleMenuButtonClick(event, file)}>
-              <MoreVertIcon sx={{ color: "#5f6368" }} />
-            </IconButton>
-          </Box>
-          );
-        })
-      )}
+          {/* RENAME DIALOG */}
+          <RenameDialog
+            open={renameDialogOpen}
+            file={fileToRename}
+            onClose={() => {
+              setRenameDialogOpen(false);
+              setFileToRename(null);
+            }}
+            onSubmit={(newName) => {
+              renameFile(fileToRename.id, newName);
+              setRenameDialogOpen(false);
+              setFileToRename(null);
+            }}
+          />
 
-      <FileKebabMenu
-        anchorEl={menuAnchorEl}
-        anchorPosition={anchorPosition}
-        open={menuOpen}
-        onClose={handleMenuClose}
-        selectedFile={selectedFile}
+          {/* SHARE DIALOG */}
+          <ShareDialog
+            open={shareDialogOpen}
+            file={fileToShare}
+            onClose={() => {
+              setShareDialogOpen(false);
+              setFileToShare(null);
+            }}
+          />
+
       />
     </Box>
   );

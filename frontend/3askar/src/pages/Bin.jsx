@@ -4,6 +4,8 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import HoverActions from "../components/HoverActions.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
 
@@ -34,12 +36,13 @@ const getSortValue = (file, field) => {
 
 function Bin() {
   const {
-    filteredFiles,
     loading,
     error,
     restoreFromBin,
     deleteForever,
     filterBySource,
+    toggleStar,
+    downloadFile,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
@@ -52,6 +55,8 @@ function Bin() {
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
   const [activeFile, setActiveFile] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
 
   const deletedFiles = React.useMemo(
     () => filterBySource(undefined, "trash"),
@@ -116,6 +121,7 @@ function Bin() {
   };
 
   const handleOpenMenu = (event, file) => {
+    event.stopPropagation?.();
     setMenuEl(event.currentTarget);
     setActiveFile(file);
   };
@@ -151,6 +157,17 @@ function Bin() {
       setSortDirection("asc");
     }
   };
+
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const closeShareDialog = () => {
+    setShareDialogOpen(false);
+    setFileToShare(null);
+  };
+
 
   const renderSortIndicator = (field) => {
     if (sortField !== field) return "";
@@ -234,70 +251,70 @@ function Bin() {
           Bin is empty.
         </Typography>
       ) : (
-        sortedFiles.map((file) => {
-          const selected = isItemSelected(file);
-          return (
-            <Box
-              key={file.id}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                px: 2,
-                py: 1.5,
-                borderBottom: "1px solid #f1f3f4",
-                ...getRowStyles(selected),
-              }}
-            >
-              <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
-                <Checkbox
-                  size="small"
-                  checked={selected}
-                  onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
-                />
-              </Box>
-              <Box
-                sx={{
-                  flex: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.5,
-                }}
-              >
-              <img
-                src={file.icon || DEFAULT_FILE_ICON}
-                width={20}
-                height={20}
-                alt="file icon"
+          sortedFiles.map((file) => {
+            const selected = isItemSelected(file);
+            return (
+              <HoverActions
+                key={file.id}
+                file={file}
+                toggleStar={toggleStar}
+                openShareDialog={openShareDialog}
+                showShare={true}
+                openRenameDialog={openRenameDialog}
+                openMenu={openMenu}
+                downloadFile={downloadFile}
+                formatDate={formatDate}
+                showRename={canRename(file)}
+                renderContent={(f) => (
+                  <>
+                    <Box
+                      sx={{ width: 40, display: "flex", justifyContent: "center" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={selected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectionFor(file);
+                        }}
+                      />
+                    </Box>
+
+                    <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <img
+                        src={f.icon || DEFAULT_FILE_ICON}
+                        width={20}
+                        height={20}
+                        alt="file icon"
+                      />
+                      {f.name}
+                    </Box>
+
+                    <Box sx={{ flex: 3, color: "#5f6368" }}>
+                      {f.owner || "Unknown"}
+                    </Box>
+
+                    <Box sx={{ flex: 2, color: "#5f6368" }}>
+                      {formatDate(f.lastAccessedAt || f.uploadedAt)}
+                    </Box>
+                  </>
+                )}
               />
-              {file.name}
-            </Box>
-
-            <Box sx={{ flex: 3, color: "#5f6368" }}>
-              {file.owner || "Unknown"}
-            </Box>
-
-            <Box sx={{ flex: 2, color: "#5f6368" }}>
-              {file.location || "My Drive"}
-            </Box>
-
-            <Box sx={{ flex: 1, color: "#5f6368" }}>
-              {formatDate(
-                file.deletedAt || file.lastAccessedAt || file.uploadedAt
-              )}
-            </Box>
-
-            <IconButton onClick={(event) => handleOpenMenu(event, file)}>
-              <MoreVertIcon sx={{ color: "#5f6368" }} />
-            </IconButton>
-          </Box>
-          );
-        })
+            );
+          })
+        )}
       )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
         <MenuItem onClick={handleRestore}>Restore</MenuItem>
         <MenuItem onClick={handleDeleteForever}>Delete forever</MenuItem>
       </Menu>
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={closeShareDialog}
+      />
     </Box>
   );
 }

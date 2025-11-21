@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { Box, Typography, IconButton, Grid, Paper, Checkbox } from "@mui/material";
+import { useFiles } from "../context/fileContext.jsx"; // PG-1: selection hooks
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { isFolder } from "../utils/fileHelpers";
@@ -8,12 +9,13 @@ import FolderIcon from "@mui/icons-material/Folder";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
-import StarIcon from "@mui/icons-material/Star";
-import { useFiles } from "../context/fileContext.jsx"; // PG-1: selection hooks
+import StarIcon from "@mui/icons-material/Star"; 
 import FileKebabMenu from "../components/FileKebabMenu";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
 import DetailsPanel from "../components/DetailsPanel.jsx";
+import HoverActions from "../components/HoverActions.jsx";
+
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -32,6 +34,7 @@ function MyDrive() {
     error,
     toggleStar,
     renameFile,
+    downloadFile,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
@@ -55,6 +58,7 @@ function MyDrive() {
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [selectedFile, setSelectedFile] = React.useState(null);
 
+  //MENU OPEN/CLOSE
   const openMenu = (event, file) => {
     event.stopPropagation();
     setMenuAnchorEl(event.currentTarget);
@@ -70,6 +74,18 @@ function MyDrive() {
     setSelectedFile(null);
   };
 
+  // Hover Action functions 
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const openRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
+  };
+
+  
   useEffect(() => {
     if (!detailsFile) return;
     const updated = filteredFiles.find((f) => f.id === detailsFile.id);
@@ -203,84 +219,62 @@ function MyDrive() {
                 <Box sx={{ width: 40 }} />
               </Box>
 
-              {driveFiles.map((file) => {
-                const selected = isItemSelected(file); // PG-5 visual feedback
+{driveFiles.map((file) => {
+                const selected = isItemSelected(file);
                 return (
-                  <Box
+                  <HoverActions
                     key={file.id}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: "1px solid #f1f3f4",
-                      cursor: "pointer",
-                      ...getRowStyles(selected),
-                    }}
-                    onClick={() => { /* preserve existing click behavior if added later */ }}
-                  >
-                    <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
-                      <Checkbox
-                        size="small"
-                        checked={selected}
-                        onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
-                      />
-                    </Box>
-                  <Box
-                    sx={{
-                      flex: 3,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                    }}
-                  >
-                    <IconButton onClick={() => toggleStar(file.id)} size="small">
-                      <StarIcon
-                        sx={{
-                          color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
-                          fontSize: 22,
-                        }}
-                      />
-                    </IconButton>
+                    file={file}
+                    toggleStar={toggleStar}
+                    openShareDialog={openShareDialog}
+                    openRenameDialog={openRenameDialog}
+                    openMenu={openMenu}
+                    downloadFile={downloadFile}
+                    formatDate={formatDate}
+                    renderContent={(f) => (
+                      <>
+                        <Box
+                          sx={{ width: 40, display: "flex", justifyContent: "center" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            size="small"
+                            checked={selected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleSelectionFor(file);
+                            }}
+                          />
+                        </Box>
 
-                    {file.type === "folder" ? (
-                      <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
-                    ) : (
-                      <img
-                        src={file.icon || DEFAULT_FILE_ICON}
-                        width={20}
-                        height={20}
-                        alt="file type"
-                      />
+                        <Box sx={{ flex: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
+                          {f.type === "folder" ? (
+                            <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
+                          ) : (
+                            <img
+                              src={f.icon || DEFAULT_FILE_ICON}
+                              width={20}
+                              height={20}
+                              alt="file icon"
+                            />
+                          )}
+                          {f.name}
+                        </Box>
+
+                        <Box sx={{ flex: 2, color: "#5f6368" }}>
+                          {f.owner || "Unknown"}
+                        </Box>
+
+                        <Box sx={{ flex: 2, color: "#5f6368" }}>
+                          {f.location || "My Drive"}
+                        </Box>
+
+                        <Box sx={{ flex: 2, color: "#5f6368" }}>
+                          {formatDate(f.lastAccessedAt || f.uploadedAt)}
+                        </Box>
+                      </>
                     )}
-
-                    <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.owner || "Unknown"}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.location || "My Drive"}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                    </Typography>
-                  </Box>
-
-                    <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                    <IconButton size="small" onClick={(e) => openMenu(e, file)}>
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
-                  </Box>
-                  </Box>
+                  />
                 );
               })}
             </>

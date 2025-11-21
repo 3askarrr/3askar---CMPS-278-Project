@@ -47,6 +47,15 @@ const formatDate = (value) => {
 
 import DetailsPanel from "./DetailsPanel.jsx";
 import ShareDialog from "./ShareDialog.jsx";
+import HoverActions from "./HoverActions.jsx";
+import RenameDialog from "./RenameDialog.jsx";
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString();
+};
 
 function Homepage({ initialView = "MY_DRIVE" }) {
   const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles } = useFiles();
@@ -54,6 +63,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
   const [detailsFile, setDetailsFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [fileToShare, setFileToShare] = React.useState(null);
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
   const [viewMode, setViewMode] = React.useState("list");
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
@@ -83,6 +94,26 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       mouseX: event.clientX + 2,
       mouseY: event.clientY - 6,
     });
+  };
+
+  const handleOpenShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const handleCloseShareDialog = () => {
+    setShareDialogOpen(false);
+    setFileToShare(null);
+  };
+
+  const handleOpenRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
+  };
+
+  const handleCloseRenameDialog = () => {
+    setRenameDialogOpen(false);
+    setFileToRename(null);
   };
 
   const handleMenuClose = () => {
@@ -871,190 +902,77 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                   <Box sx={{ width: 40 }} />
                 </Box>
 
-                {filesInCurrentFolder.map((file) => (
-                  <Box
-                    key={file.id}
-                    onContextMenu={(e) => handleContextMenu(e, file)}
-                    onClick={(e) => {
-                      // Optional: handle row click
-                    }}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: "1px solid #f1f3f4",
-                      cursor: "pointer",
-                      backgroundColor: selectedFiles.has(file.id) ? "#e8f0fe" : "transparent",
-                      "&:hover": {
-                        backgroundColor: selectedFiles.has(file.id) ? "#e8f0fe" : "#f8f9fa",
-                        "& .file-checkbox": { opacity: 1 },
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 40,
-                        display: "flex",
-                        justifyContent: "center",
-                        opacity: selectedFiles.has(file.id) ? 1 : 0,
-                        transition: "opacity 0.2s",
-                      }}
-                      className="file-checkbox"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        size="small"
-                        checked={selectedFiles.has(file.id)}
-                        onChange={() => toggleFileSelection(file.id)}
-                      />
-                    </Box>
+              {suggestedFiles.length === 0 ? (
+                <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                  No files match the current filters.
+                </Typography>
+              ) : (
+                suggestedFiles.map((file, index) => (
+                  <HoverActions
+                    key={file.id ?? index}
+                    file={file}
+                    toggleStar={toggleStar}
+                    openShareDialog={handleOpenShareDialog}
+                    openRenameDialog={handleOpenRenameDialog}
+                    openMenu={handleMenuButtonClick}
+                    downloadFile={downloadFile}
+                    formatDate={formatDate}
+                    onContextMenu={handleContextMenu}
+                    renderContent={(currentFile) => (
+                      <>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            flex: 3,
+                            gap: 1.5,
+                          }}
+                        >
+                          <img
+                            src={currentFile.icon}
+                            alt=""
+                            width={20}
+                            height={20}
+                          />
+                          <Typography sx={{ fontWeight: 500 }}>
+                            {currentFile.name}
+                          </Typography>
+                        </Box>
 
-                    <Box
-                      sx={{
-                        flex: 3,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                      }}
-                    >
-                      <img
-                        src={file.icon || DEFAULT_FILE_ICON}
-                        alt="file icon"
-                        width={20}
-                        height={20}
-                      />
-                      <Typography sx={{ fontWeight: 500 }}>
-                        {file.name}
-                      </Typography>
-                    </Box>
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {currentFile.reason}
+                          </Typography>
+                        </Box>
 
-                    <Box sx={{ flex: 2 }}>
-                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                        {file.owner || "Unknown"}
-                      </Typography>
-                    </Box>
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {currentFile.owner}
+                          </Typography>
+                        </Box>
 
-                    <Box sx={{ flex: 2 }}>
-                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                        {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      sx={{
-                        width: 40,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuButtonClick(e, file)}
-                      >
-                        <MoreVertIcon sx={{ color: "#5f6368" }} />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                ))}
-              </>
-            )}
-
-
-          </AccordionDetails>
-        </Accordion >
-      )
-      }
-
-
-
-      {/* SUGGESTED FILES ACCORDION – ONLY ON MY DRIVE ROOT */}
-      {
-        isMyDriveRoot && (
-          <Accordion
-            defaultExpanded
-            disableGutters
-            square
-            sx={{
-              backgroundColor: "transparent",
-              boxShadow: "none",
-              "&:before": { display: "none" },
-              mt: 3,
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon sx={{ color: "#5f6368" }} />}
-              sx={{
-                backgroundColor: "#ffffff",
-                borderRadius: "9999px",
-                px: 1.5,
-                py: 0.5,
-                width: "fit-content",
-                transition: "all 0.2s ease",
-                "& .MuiAccordionSummary-content": {
-                  marginY: 0,
-                  marginLeft: 0.5,
-                },
-                "&:hover": {
-                  backgroundColor: "#e8f0fe",
-                  "& .MuiTypography-root": { color: "#1a73e8" },
-                  "& .MuiSvgIcon-root": { color: "#1a73e8" },
-                },
-              }}
-            >
-              <Typography sx={{ fontWeight: 600, color: "#202124" }}>
-                Suggested files
-              </Typography>
-            </AccordionSummary>
-
-            <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
-              <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-                <IconButton
-                  size="small"
-                  onClick={() => setViewMode("list")}
-                  sx={{
-                    color: viewMode === "list" ? "#1a73e8" : "#5f6368",
-                  }}
-                >
-                  <ListIcon />
-                </IconButton>
-
-                <IconButton
-                  size="small"
-                  onClick={() => setViewMode("grid")}
-                  sx={{
-                    color: viewMode === "grid" ? "#1a73e8" : "#5f6368",
-                  }}
-                >
-                  <GridViewIcon />
-                </IconButton>
-              </Box>
-
-              {viewMode === "list" ? (
-                <>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      px: 2,
-                      py: 1,
-                      borderBottom: "1px solid #e0e0e0",
-                      color: "#5f6368",
-                      fontSize: 14,
-                      fontWeight: 500,
-                    }}
-                  >
-                    <Box sx={{ flex: 3 }}>Name</Box>
-                    <Box sx={{ flex: 2 }}>Reason suggested</Box>
-                    <Box sx={{ flex: 2 }}>Owner</Box>
-                    <Box sx={{ flex: 2 }}>Location</Box>
-                    <Box sx={{ width: 40 }}></Box>
-                  </Box>
-
-                  {suggestedFiles.map((file) => (
-                    <Box
-                      key={file.id}
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {currentFile.location}
+                          </Typography>
+                        </Box>
+                      </>
+                    )}
+                  />
+                ))
+              )}
+            </>
+          ) : (
+            <Grid container spacing={2} sx={{ px: 2, py: 1 }}>
+              {suggestedFiles.length === 0 ? (
+                <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
+                  No files match the current filters.
+                </Typography>
+              ) : (
+                suggestedFiles.map((file, index) => (
+                  <Grid item xs={12} sm={6} md={3} lg={2} key={index}>
+                    <Paper
+                      elevation={0}
                       onContextMenu={(e) => handleContextMenu(e, file)}
                       sx={{
                         display: "flex",
@@ -1237,10 +1155,8 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         open={menuOpen}
         onClose={handleMenuClose}
         selectedFile={selectedFile}
-        onStartShare={(file) => {
-          setFileToShare(file);
-          setShareDialogOpen(true);
-        }}
+        onStartShare={handleOpenShareDialog}
+        onStartRename={handleOpenRenameDialog}
         onViewDetails={(file) => {
           setDetailsFile(file);
           setDetailsPanelOpen(true);
@@ -1254,20 +1170,26 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         onClose={() => setDetailsPanelOpen(false)}
         onManageAccess={(file) => {
           setDetailsPanelOpen(false);
-          setFileToShare(file);
-          setShareDialogOpen(true);
+          handleOpenShareDialog(file);
+        }}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={handleCloseRenameDialog}
+        onSubmit={(newName) => {
+          if (!fileToRename) return;
+          renameFile(fileToRename.id, newName);
+          handleCloseRenameDialog();
         }}
       />
 
       <ShareDialog
         open={shareDialogOpen}
         file={fileToShare}
-        onClose={() => {
-          setShareDialogOpen(false);
-          setFileToShare(null);
-        }}
+        onClose={handleCloseShareDialog}
       />
-
 
 
 

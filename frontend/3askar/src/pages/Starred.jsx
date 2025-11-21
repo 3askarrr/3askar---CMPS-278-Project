@@ -5,6 +5,9 @@ import StarIcon from "@mui/icons-material/Star";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import HoverActions from "../components/HoverActions.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
+import RenameDialog from "../components/RenameDialog.jsx";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
@@ -18,6 +21,9 @@ const formatDate = (value) => {
 
 function Starred() {
   const {
+    toggleStar,
+    renameFile,
+    downloadFile,
     filteredFiles,
     filterBySource,
     loading,
@@ -33,6 +39,10 @@ function Starred() {
   const [sortField, setSortField] = React.useState("name");
   const [sortDirection, setSortDirection] = React.useState("asc");
   const [menuEl, setMenuEl] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
@@ -95,6 +105,10 @@ function Starred() {
     });
   }, [starredFiles, sortField, sortDirection]);
 
+  const handleOpenMenu = (event) => {
+    event.stopPropagation?.();
+    setMenuEl(event.currentTarget);
+  };
   const selectedCount = React.useMemo(
     () => sortedFiles.reduce((acc, f) => {
       const isFolderItem = isFolder(f);
@@ -134,6 +148,26 @@ function Starred() {
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const closeShareDialog = () => {
+    setShareDialogOpen(false);
+    setFileToShare(null);
+  };
+
+  const openRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
+  };
+
+  const closeRenameDialog = () => {
+    setRenameDialogOpen(false);
+    setFileToRename(null);
   };
 
   const renderSortIndicator = (field) => {
@@ -209,59 +243,75 @@ function Starred() {
         <Box sx={{ width: 40 }} />
       </Box>
 
-      {sortedFiles.map((file) => {
-        const selected = isItemSelected(file);
-        return (
-          <Box
-            key={file.id}
-            onContextMenu={(e) => handleContextMenu(e, file)}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              px: 2,
-              py: 1.5,
-              borderBottom: "1px solid #f1f3f4",
-              ...getRowStyles(selected),
-            }}
-          >
-            <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
-              <Checkbox
-                size="small"
-                checked={selected}
-                onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
-              />
-            </Box>
-            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-              <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
-            <img src={file.icon} width={20} height={20} alt="file icon" />
-            {file.name}
-          </Box>
-
-          <Box sx={{ flex: 3, color: "#5f6368" }}>
-            {file.owner || "Unknown"}
-          </Box>
-
-          <Box sx={{ flex: 2, color: "#5f6368" }}>
-            {formatDate(file.lastAccessedAt || file.uploadedAt)}
-          </Box>
-
-          <IconButton onClick={(event) => handleMenuButtonClick(event, file)}>
-            <MoreVertIcon sx={{ color: "#5f6368" }} />
-          </IconButton>
-
+{sortedFiles.map((file) => (
+  <HoverActions
+    key={file.id}
+    file={file}
+    toggleStar={toggleStar}
+    openShareDialog={openShareDialog}
+    openRenameDialog={openRenameDialog}
+    openMenu={(e) => handleMenuButtonClick(e, file)}
+    downloadFile={downloadFile}
+    formatDate={formatDate}
+    renderContent={(f) => (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          px: 2,
+          py: 1.5,
+          borderBottom: "1px solid #f1f3f4",
+        }}
+      >
+        <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <img src={f.icon || DEFAULT_FILE_ICON} width={20} height={20} />
+          {f.name}
         </Box>
-        );
-      })}
-     
-      <FileKebabMenu
-        anchorEl={menuAnchorEl}
-        anchorPosition={anchorPosition}
-        open={menuOpen}
-        onClose={handleMenuClose}
-        selectedFile={selectedFile}
-      />
-    </Box>
-  );
+
+        <Box sx={{ flex: 3, color: "#5f6368" }}>
+          {f.owner || "Unknown"}
+        </Box>
+
+        <Box sx={{ flex: 2, color: "#5f6368" }}>
+          {formatDate(f.lastAccessedAt || f.uploadedAt)}
+        </Box>
+
+        <IconButton onClick={(event) => handleMenuButtonClick(event, f)}>
+          <MoreVertIcon sx={{ color: "#5f6368" }} />
+        </IconButton>
+      </Box>
+    )}
+  />
+))}
+
+/* RENAME DIALOG */
+<RenameDialog
+  open={renameDialogOpen}
+  file={fileToRename}
+  onClose={closeRenameDialog}
+  onSubmit={(newName) => {
+    if (!fileToRename) return;
+    renameFile(fileToRename.id, newName);
+    closeRenameDialog();
+  }}
+/>
+
+/* SHARE DIALOG */
+<ShareDialog
+  open={shareDialogOpen}
+  file={fileToShare}
+  onClose={closeShareDialog}
+/>
+
+/* FILE KEBAB MENU */
+<FileKebabMenu
+  anchorEl={menuAnchorEl}
+  anchorPosition={anchorPosition}
+  open={menuOpen}
+  onClose={handleMenuClose}
+  selectedFile={selectedFile}
+/>
+
 }
 
 export default Starred;

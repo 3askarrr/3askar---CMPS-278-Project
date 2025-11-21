@@ -48,6 +48,15 @@ function ShareDialog({ open, file, onClose }) {
       return `${window.location.origin}/folders/${file.publicId || file._id}`;
     }
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
     // file download link (original behavior)
     return `${window.location.origin}/files/${file.id}/download`;
   }, [file, isFolder, targetId]);
@@ -75,6 +84,18 @@ function ShareDialog({ open, file, onClose }) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const trimmedEmail = email.trim();
   const isEmailValid = emailRegex.test(trimmedEmail);
+
+  // 1. Find user by email before sharing
+  const handleAddCollaborator = async () => {
+    const raw = (email || "").trim();
+    if (!raw) return;
+    const normalized = raw.toLowerCase();
+
+    try {
+      // Find user by email (normalize casing)
+      const res = await apiClient.get(
+        `/user/find?email=${encodeURIComponent(normalized)}`
+      );
 
   const handleCopyLink = async () => {
     if (!shareLink) return;
@@ -119,17 +140,30 @@ function ShareDialog({ open, file, onClose }) {
           permission,
         });
 
-        setCollaborators((prev) => [
-          ...prev,
-          { user, permission },
-        ]);
+        // Update UI
+        setCollaborators((prev) => [...prev, { user, permission }]);
+        setEmail("");
+        setPermission("read");
+      } catch (shareErr) {
+        const status = shareErr?.response?.status;
+        const msg = shareErr?.response?.data?.message || "";
+        if ((status === 404 && /file not found/i.test(msg)) || status === 403) {
+          alert("Unable to share: you must be the owner or have write permission.");
+        } else if (status === 400) {
+          alert(msg || "Invalid share request.");
+        } else {
+          console.error("Share error:", shareErr);
+          alert(msg || "Failed to share file.");
+        }
       }
-
-      setEmail("");
-      setPermission("read");
     } catch (err) {
-      console.error("Error adding collaborator:", err);
-      alert("User not found or sharing failed.");
+      const status = err?.response?.status;
+      if (status === 404) {
+        alert("This email does not belong to a registered 3askar user.");
+      } else {
+        console.error("Find user error:", err);
+        alert("Unable to verify user right now.");
+      }
     }
   };
 
@@ -287,47 +321,45 @@ function ShareDialog({ open, file, onClose }) {
             No one else has access
           </Typography>
         ) : (
-          collaboratorsForRender.map(({ raw, user, permValue }, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                mb: 2,
-                p: 1,
-                borderRadius: 2,
-                "&:hover": { backgroundColor: "#f8f9fa" },
-              }}
-            >
-              <Avatar sx={{ mr: 2 }}>
-                {user.email?.charAt(0).toUpperCase() || "?"}
-              </Avatar>
-
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography sx={{ fontWeight: 500 }}>
-                  {user.email || "Unknown User"}
-                </Typography>
-              </Box>
-
-              <Select
-                size="small"
-                value={permValue}
-                onChange={(e) =>
-                  handlePermissionChange(raw, e.target.value)
-                }
-                sx={{ mr: 2, width: 120 }}
+          collaborators
+            .filter((col) => col.user && typeof col.user === 'object' && col.user.email)
+            .map((col, index) => (
+              <Box
+                key={index}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  mb: 2,
+                  p: 1,
+                  borderRadius: 2,
+                  "&:hover": { backgroundColor: "#f8f9fa" }
+                }}
               >
-                <MenuItem value="read">Read</MenuItem>
-                <MenuItem value="write">
-                  {isFolder ? "Can edit" : "Write"}
-                </MenuItem>
-              </Select>
+                <Avatar sx={{ mr: 2 }}>
+                  {col.user?.email?.charAt(0).toUpperCase() || '?'}
+                </Avatar>
 
-              <IconButton onClick={() => handleRemove(raw)}>
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          ))
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography sx={{ fontWeight: 500 }}>
+                    {col.user?.email || 'Unknown User'}
+                  </Typography>
+                </Box>
+
+                <Select
+                  size="small"
+                  value={col.permission}
+                  onChange={(e) => handlePermissionChange(col, e.target.value)}
+                  sx={{ mr: 2, width: 120 }}
+                >
+                  <MenuItem value="read">Read</MenuItem>
+                  <MenuItem value="write">Write</MenuItem>
+                </Select>
+
+                <IconButton onClick={() => handleRemove(col)}>
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+            ))
         )}
       </DialogContent>
 
