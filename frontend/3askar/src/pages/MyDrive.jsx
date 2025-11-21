@@ -133,7 +133,7 @@ function MyDrive() {
     <Box
       sx={{
         flexGrow: 1,
-        padding: 10,
+        p: { xs: 2, md: 4 },
         marginTop: "64px",
         backgroundColor: "#ffffff",
         height: "calc(100vh - 64px)",
@@ -197,9 +197,9 @@ function MyDrive() {
                   />
                 </Box>
                 <Box sx={{ flex: 3 }}>Name</Box>
-                <Box sx={{ flex: 2 }}>Owner</Box>
-                <Box sx={{ flex: 2 }}>Location</Box>
-                <Box sx={{ flex: 2 }}>Date modified</Box>
+                <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>Owner</Box>
+                <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>Location</Box>
+                <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>Date modified</Box>
                 <Box sx={{ width: 40 }} />
               </Box>
 
@@ -226,60 +226,60 @@ function MyDrive() {
                         onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
                       />
                     </Box>
-                  <Box
-                    sx={{
-                      flex: 3,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                    }}
-                  >
-                    <IconButton onClick={() => toggleStar(file.id)} size="small">
-                      <StarIcon
-                        sx={{
-                          color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
-                          fontSize: 22,
-                        }}
-                      />
-                    </IconButton>
+                    <Box
+                      sx={{
+                        flex: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                      }}
+                    >
+                      <IconButton onClick={() => toggleStar(file.id)} size="small">
+                        <StarIcon
+                          sx={{
+                            color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
+                            fontSize: 22,
+                          }}
+                        />
+                      </IconButton>
 
-                    {file.type === "folder" ? (
-                      <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
-                    ) : (
-                      <img
-                        src={file.icon || DEFAULT_FILE_ICON}
-                        width={20}
-                        height={20}
-                        alt="file type"
-                      />
-                    )}
+                      {file.type === "folder" ? (
+                        <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
+                      ) : (
+                        <img
+                          src={file.icon || DEFAULT_FILE_ICON}
+                          width={20}
+                          height={20}
+                          alt="file type"
+                        />
+                      )}
 
-                    <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
-                  </Box>
+                      <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                    </Box>
 
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.owner || "Unknown"}
-                    </Typography>
-                  </Box>
+                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.owner || "Unknown"}
+                      </Typography>
+                    </Box>
 
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {file.location || "My Drive"}
-                    </Typography>
-                  </Box>
+                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {file.location || "My Drive"}
+                      </Typography>
+                    </Box>
 
-                  <Box sx={{ flex: 2 }}>
-                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                    </Typography>
-                  </Box>
+                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
+                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                        {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                      </Typography>
+                    </Box>
 
                     <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                    <IconButton size="small" onClick={(e) => openMenu(e, file)}>
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
-                  </Box>
+                      <IconButton size="small" onClick={(e) => openMenu(e, file)}>
+                        <MoreVertIcon sx={{ color: "#5f6368" }} />
+                      </IconButton>
+                    </Box>
                   </Box>
                 );
               })}
@@ -290,7 +290,7 @@ function MyDrive() {
               {driveFiles.map((file) => {
                 const selected = isItemSelected(file);
                 return (
-                  <Grid item xs={12} sm={6} md={3} lg={2} key={file.id}>
+                  <Grid item xs={6} sm={4} md={3} lg={2} key={file.id}>
                     <Paper
                       elevation={0}
                       sx={{
@@ -309,46 +309,46 @@ function MyDrive() {
                         onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
                         sx={checkboxOverlayStyles}
                       />
-                    <IconButton
-                      size="small"
-                      sx={{ position: "absolute", top: 4, right: 4 }}
-                      onClick={(e) => openMenu(e, file)}
-                    >
-                      <MoreVertIcon sx={{ color: "#5f6368" }} />
-                    </IconButton>
+                      <IconButton
+                        size="small"
+                        sx={{ position: "absolute", top: 4, right: 4 }}
+                        onClick={(e) => openMenu(e, file)}
+                      >
+                        <MoreVertIcon sx={{ color: "#5f6368" }} />
+                      </IconButton>
 
-                    <Box
-                      sx={{
-                        height: 120,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        backgroundColor: "#f8f9fa",
-                      }}
-                    >
-                      {file.type === "folder" ? (
-                        <FolderIcon sx={{ fontSize: 40, color: "#4285f4" }} />
-                      ) : (
-                        <img
-                          src={file.icon || DEFAULT_FILE_ICON}
-                          width={40}
-                          height={40}
-                          alt="file type"
-                        />
-                      )}
-                    </Box>
+                      <Box
+                        sx={{
+                          height: 120,
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          backgroundColor: "#f8f9fa",
+                        }}
+                      >
+                        {file.type === "folder" ? (
+                          <FolderIcon sx={{ fontSize: 40, color: "#4285f4" }} />
+                        ) : (
+                          <img
+                            src={file.icon || DEFAULT_FILE_ICON}
+                            width={40}
+                            height={40}
+                            alt="file type"
+                          />
+                        )}
+                      </Box>
 
-                    <Box sx={{ p: 1.5, pt: 5 }}>
-                      <Typography sx={{ fontWeight: 500, fontSize: 14, mb: 0.5 }}>
-                        {file.name}
-                      </Typography>
-                      <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
-                        {file.owner || "Unknown"}
-                      </Typography>
-                      <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
-                        {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                      </Typography>
-                    </Box>
+                      <Box sx={{ p: 1.5, pt: 5 }}>
+                        <Typography sx={{ fontWeight: 500, fontSize: 14, mb: 0.5 }}>
+                          {file.name}
+                        </Typography>
+                        <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
+                          {file.owner || "Unknown"}
+                        </Typography>
+                        <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
+                          {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                        </Typography>
+                      </Box>
                     </Paper>
                   </Grid>
                 );

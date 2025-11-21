@@ -174,7 +174,9 @@ function Shared() {
     <Box
       sx={{
         flexGrow: 1,
-        padding: 10,
+        px: { xs: 2, md: 4 },
+        pt: 3,
+        pb: 6,
         marginTop: "64px",
         backgroundColor: "#ffffff",
         height: "calc(100vh - 64px)",
@@ -215,11 +217,11 @@ function Shared() {
           Name{renderSortIndicator("name")}
         </Box>
 
-        <Box sx={{ flex: 3 }} onClick={() => handleSort("owner")}>
+        <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("owner")}>
           Shared by{renderSortIndicator("owner")}
         </Box>
 
-        <Box sx={{ flex: 2 }} onClick={() => handleSort("date")}>
+        <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("date")}>
           Date shared{renderSortIndicator("date")}
         </Box>
 
@@ -263,11 +265,11 @@ function Shared() {
               {file.name}
             </Box>
 
-            <Box sx={{ flex: 3, color: "#5f6368" }}>
+            <Box sx={{ flex: 3, color: "#5f6368", display: { xs: 'none', md: 'block' } }}>
               {file.owner || "Unknown"}
             </Box>
 
-            <Box sx={{ flex: 2, color: "#5f6368" }}>
+            <Box sx={{ flex: 2, color: "#5f6368", display: { xs: 'none', md: 'block' } }}>
               {formatDate(file.lastAccessedAt || file.uploadedAt)}
             </Box>
 
