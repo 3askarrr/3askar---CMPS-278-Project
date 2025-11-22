@@ -14,6 +14,7 @@ import FileKebabMenu from "../components/FileKebabMenu";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
 import DetailsPanel from "../components/DetailsPanel.jsx";
+import HoverActions from "../components/HoverActions.jsx";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -32,6 +33,7 @@ function MyDrive() {
     error,
     toggleStar,
     renameFile,
+    downloadFile,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
@@ -68,6 +70,17 @@ function MyDrive() {
   const closeMenu = () => {
     setMenuAnchorEl(null);
     setSelectedFile(null);
+  };
+
+  // Hover Action functions 
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const openRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
   };
 
   useEffect(() => {
@@ -204,7 +217,8 @@ function MyDrive() {
               </Box>
 
               {driveFiles.map((file) => {
-                const selected = isItemSelected(file); // PG-5 visual feedback
+                const selected = isItemSelected(file);
+
                 return (
                   <Box
                     key={file.id}
@@ -217,72 +231,67 @@ function MyDrive() {
                       cursor: "pointer",
                       ...getRowStyles(selected),
                     }}
-                    onClick={() => { /* preserve existing click behavior if added later */ }}
                   >
+
+                    {/* checkbox stays */}
                     <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
                       <Checkbox
-                        size="small"
                         checked={selected}
-                        onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectionFor(file);
+                        }}
                       />
                     </Box>
-                    <Box
-                      sx={{
-                        flex: 3,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                      }}
-                    >
-                      <IconButton onClick={() => toggleStar(file.id)} size="small">
-                        <StarIcon
-                          sx={{
-                            color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
-                            fontSize: 22,
-                          }}
+
+                    {/* FOLDER ROWS — keep your full manual layout */}
+                    {file.type === "folder" ? (
+                      <>
+                        <Box sx={{ flex: 3, display: "flex", gap: 1.5 }}>
+                          <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
+                          <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                        </Box>
+
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {file.owner}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {file.location}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ flex: 2 }}>
+                          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                            {formatDate(file.lastAccessedAt)}
+                          </Typography>
+                        </Box>
+
+                        <IconButton size="small" onClick={(e) => openMenu(e, file)}>
+                          <MoreVertIcon sx={{ color: "#5f6368" }} />
+                        </IconButton>
+                      </>
+                    ) : (
+                      /* FILE ROWS — use HoverActions */
+                      <Box sx={{ flex: 1 }}>
+                        <HoverActions
+                          file={file}
+                          toggleStar={toggleStar}
+                          openShareDialog={openShareDialog}
+                          openMenu={openMenu}
+                          downloadFile={downloadFile}
+                          formatDate={formatDate}
+                          showRename={true}
                         />
-                      </IconButton>
-
-                      {file.type === "folder" ? (
-                        <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
-                      ) : (
-                        <img
-                          src={file.icon || DEFAULT_FILE_ICON}
-                          width={20}
-                          height={20}
-                          alt="file type"
-                        />
-                      )}
-
-                      <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
-                    </Box>
-
-                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
-                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                        {file.owner || "Unknown"}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
-                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                        {file.location || "My Drive"}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
-                      <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                        {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ width: 40, display: "flex", justifyContent: "flex-end" }}>
-                      <IconButton size="small" onClick={(e) => openMenu(e, file)}>
-                        <MoreVertIcon sx={{ color: "#5f6368" }} />
-                      </IconButton>
-                    </Box>
+                      </Box>
+                    )}
                   </Box>
                 );
               })}
+
             </>
           ) : (
             /* GRID VIEW */

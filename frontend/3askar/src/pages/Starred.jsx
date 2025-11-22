@@ -8,6 +8,9 @@ import { useFiles } from "../context/fileContext.jsx";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles } from "../styles/selectionTheme";
+import HoverActions from "../components/HoverActions.jsx";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog.jsx";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -37,6 +40,10 @@ function Starred() {
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
   const [menuPosition, setMenuPosition] = React.useState(null);
   const [selectedFile, setSelectedFile] = React.useState(null);
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
@@ -66,6 +73,16 @@ function Starred() {
     setMenuAnchorEl(null);
     setMenuPosition(null);
     setSelectedFile(null);
+  };
+
+  const openShareDialog = (file) => {
+    setFileToShare(file);
+    setShareDialogOpen(true);
+  };
+
+  const openRenameDialog = (file) => {
+    setFileToRename(file);
+    setRenameDialogOpen(true);
   };
 
   React.useEffect(() => {
@@ -233,34 +250,74 @@ function Starred() {
                 onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
               />
             </Box>
-            <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-              <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
-            <img src={file.icon} width={20} height={20} alt="file icon" />
-            {file.name}
+            <Box sx={{ flex: 1 }}>
+              <HoverActions
+                file={file}
+                toggleStar={useFiles().toggleStar}
+                openShareDialog={openShareDialog}
+                openRenameDialog={openRenameDialog}
+                openMenu={handleMenuButtonClick}
+                downloadFile={useFiles().downloadFile}
+                formatDate={formatDate}
+                showRename={true}
+                showShare={true}
+                showStar={true}
+                disableWrapper={true}
+                renderContent={(f) => (
+                  <>
+                    <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+                      {/* Removed StarIcon as requested */}
+                      <img src={f.icon} width={20} height={20} alt="file icon" />
+                      {f.name}
+                    </Box>
+
+                    <Box sx={{ flex: 3, color: "#5f6368" }}>
+                      {f.owner || "Unknown"}
+                    </Box>
+
+                    <Box sx={{ flex: 2, color: "#5f6368" }}>
+                      {formatDate(f.lastAccessedAt || f.uploadedAt)}
+                    </Box>
+                  </>
+                )}
+              />
+            </Box>
+
           </Box>
-
-          <Box sx={{ flex: 3, color: "#5f6368", display: { xs: 'none', md: 'block' } }}>
-            {file.owner || "Unknown"}
-          </Box>
-
-          <Box sx={{ flex: 2, color: "#5f6368", display: { xs: 'none', md: 'block' } }}>
-            {formatDate(file.lastAccessedAt || file.uploadedAt)}
-          </Box>
-
-          <IconButton onClick={(event) => handleMenuButtonClick(event, file)}>
-            <MoreVertIcon sx={{ color: "#5f6368" }} />
-          </IconButton>
-
-        </Box>
         );
       })}
-     
+
       <FileKebabMenu
         anchorEl={menuAnchorEl}
         anchorPosition={anchorPosition}
         open={menuOpen}
         onClose={handleMenuClose}
         selectedFile={selectedFile}
+        onStartShare={openShareDialog}
+        onStartRename={openRenameDialog}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={() => {
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+        onSubmit={(newName) => {
+          useFiles().renameFile(fileToRename.id, newName);
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+      />
+
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
       />
     </Box>
   );
