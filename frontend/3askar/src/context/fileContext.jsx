@@ -90,6 +90,7 @@ export const FileProvider = ({ children }) => {
   const [searching, setSearching] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState(() => new Set());
   const [selectedFolders, setSelectedFolders] = useState(() => new Set());
+  const [folderRefreshTrigger, setFolderRefreshTrigger] = useState(0); //@ahmed added it
 
   const filesRef = useRef([]);
   const trashRef = useRef([]);
@@ -997,6 +998,7 @@ const clearSearch = useCallback(() => {
 
 const refreshFiles = useCallback(() => {
   logEvent("refreshFiles:requested");
+  setFolderRefreshTrigger((prev) => prev + 1); //@ahmed
   if (!currentUserId && !currentUserEmail) {
     pendingRefresh.current = true;
     logEvent("refreshFiles:queued-no-user");
@@ -1131,7 +1133,8 @@ const filterByModified = useCallback(
       const date = new Date(
         file.lastAccessedAt || file.uploadedAt || file.dateUploaded
       );
-      if (!date) return false;
+      // Check for invalid date
+      if (Number.isNaN(date.getTime())) return false;
 
       switch (modifiedFilter) {
         case "today":
@@ -1165,9 +1168,8 @@ const matchesSource = useCallback((file, source) => {
 
     case "shared":
       return (
-        !file.isDeleted &&
-        ((file.location || "").toLowerCase().includes("shared") ||
-          (file.sharedWith?.length ?? 0) > 0)
+          (file.location || "").toLowerCase().includes("shared") ||
+          (file.sharedWith?.length ?? 0) > 0
       );
 
     case "starred":
@@ -1207,7 +1209,7 @@ const pickSourceList = useCallback(
         return files;
     }
   },
-  [files, sharedFiles, combinedFiles]
+  [files, sharedFiles, combinedFiles, trashFiles]
 );
 
 const filteredFiles = useMemo(() => {
@@ -1355,6 +1357,7 @@ const selectedFoldersSafe = useMemo(
 return (
   <FileContext.Provider
     value={{
+      folderRefreshTrigger,
       files,
       trashFiles,
       sharedFiles,
@@ -1402,6 +1405,10 @@ return (
       batchShare,
       batchCopy,
       canRename,
+      // Export filtering functions for use in filterHelpers
+      matchesCurrentUser,
+      matchTypeFilter,
+      filterByModified,
     }}
   >
     {children}

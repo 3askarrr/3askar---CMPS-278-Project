@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -36,6 +36,7 @@ import {
 } from "../api/foldersApi";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useFiles } from "../context/fileContext.jsx";
+import { isItemVisible } from "../utils/filterHelpers";
 import FolderDetailsPanel from "./FolderDetailsPanel";
 import RenameDialog from "./RenameDialog.jsx";
 import { getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
@@ -53,7 +54,28 @@ const formatDate = (value) => {
 };
 
 function Homepage({ initialView = "MY_DRIVE" }) {
-  const { files, sharedFiles, loading, selectedFiles, toggleFileSelection, selectAll, selectedFolders, toggleFolderSelection, clearSelection, refreshFiles, batchMove, toggleStar, renameFile, downloadFile } = useFiles();
+  const {
+    files,
+    sharedFiles,
+    loading,
+    selectedFiles,
+    toggleFileSelection,
+    selectAll,
+    selectedFolders,
+    toggleFolderSelection,
+    clearSelection,
+    refreshFiles, //@ahmed
+    batchMove,
+    toggleStar,
+    renameFile,
+    downloadFile,
+    folderRefreshTrigger,
+    // Filter states
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter
+  } = useFiles();
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
@@ -339,6 +361,43 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     });
   }, [rootFolders, filesInCurrentFolder, currentView]);
 
+  // Use shared filtering logic
+  const {
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+    sourceFilter,
+  } = useFiles();
+
+  // Create filtered list using shared filter helper
+  const displayItems = React.useMemo(() => {
+    return unifiedItems.filter((item) =>
+      isItemVisible(item, {
+        filterMode,
+        typeFilter,
+        peopleFilter,
+        modifiedFilter,
+        sourceFilter,
+        matchesCurrentUser,
+        matchTypeFilter,
+        filterByModified,
+        matchesSource,
+      })
+    );
+  }, [
+    unifiedItems,
+    filterMode,
+    typeFilter,
+    modifiedFilter,
+    peopleFilter,
+    sourceFilter,
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+  ]);
+
 
 
 
@@ -374,7 +433,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
   useEffect(() => {
     loadFoldersForCurrentView();
-  }, [currentView, currentFolderId]);
+  }, [currentView, currentFolderId, folderRefreshTrigger]);
 
   useEffect(() => {
     if (currentView === "STARRED") {
@@ -806,7 +865,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           visibleItems={currentView === "MY_DRIVE" ? unifiedItems : [...rootFolders.map(f => ({ ...f, id: f.id || f.publicId || f._id, type: 'folder' })), ...allFiles.map(f => ({ ...f, type: 'file' }))]}
         />
       ) : (
-        <MenuBar visibleFiles={allFiles} />
+        currentView !== "HOME" && <MenuBar visibleFiles={currentView === "MY_DRIVE" ? unifiedItems : allFiles} />
       )}
 
       {/* View Mode Toggle Buttons - Only for MY_DRIVE */}
@@ -1439,9 +1498,11 @@ function Homepage({ initialView = "MY_DRIVE" }) {
       {/* UNIFIED LIST VIEW - ONLY FOR MY_DRIVE */}
       {currentView === "MY_DRIVE" && (
         <Box sx={{ mt: 2 }}>
-          {unifiedItems.length === 0 ? (
+          {displayItems.length === 0 ? (
             <Typography sx={{ px: 2, py: 3, color: "#5f6368" }}>
-              {isMyDriveRoot ? "My Drive is empty." : "This folder is empty."}
+              {unifiedItems.length === 0
+                ? (isMyDriveRoot ? "My Drive is empty." : "This folder is empty.")
+                : "No items match the selected filters."}
             </Typography>
           ) : viewMode === "list" ? (
             <>
@@ -1462,21 +1523,21 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                   <Checkbox
                     size="small"
                     checked={
-                      unifiedItems.length > 0 &&
-                      unifiedItems.every((item) =>
+                      displayItems.length > 0 &&
+                      displayItems.every((item) =>
                         item.type === 'folder' ? selectedFolders.has(item.publicId || item._id) : selectedFiles.has(item.id)
                       )
                     }
                     indeterminate={
-                      unifiedItems.some((item) =>
+                      displayItems.some((item) =>
                         item.type === 'folder' ? selectedFolders.has(item.publicId || item._id) : selectedFiles.has(item.id)
                       ) &&
-                      !unifiedItems.every((item) =>
+                      !displayItems.every((item) =>
                         item.type === 'folder' ? selectedFolders.has(item.publicId || item._id) : selectedFiles.has(item.id)
                       )
                     }
                     onChange={() => {
-                      const allSelected = unifiedItems.every((item) =>
+                      const allSelected = displayItems.every((item) =>
                         item.type === 'folder' ? selectedFolders.has(item.publicId || item._id) : selectedFiles.has(item.id)
                       );
 
@@ -1484,7 +1545,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                         clearSelection();
                       } else {
                         // Select all
-                        unifiedItems.forEach(item => {
+                        displayItems.forEach(item => {
                           if (item.type === 'folder') {
                             if (!selectedFolders.has(item.publicId || item._id)) toggleFolderSelection(item.publicId || item._id);
                           } else {
@@ -1502,7 +1563,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
               </Box>
 
               {/* List Items */}
-              {unifiedItems.map((item) => {
+              {displayItems.map((item) => {
                 const isFolderItem = item.type === 'folder';
                 const id = isFolderItem ? (item.publicId || item._id) : item.id;
                 const selected = isFolderItem ? selectedFolders.has(id) : selectedFiles.has(id);
@@ -1573,7 +1634,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
           ) : (
             /* GRID VIEW */
             <Grid container spacing={2}>
-              {unifiedItems.map((item) => {
+              {displayItems.map((item) => {
                 const isFolderItem = item.type === 'folder';
                 const id = isFolderItem ? (item.publicId || item._id) : item.id;
                 const selected = isFolderItem ? selectedFolders.has(id) : selectedFiles.has(id);

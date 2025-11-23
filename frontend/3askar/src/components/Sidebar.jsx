@@ -57,7 +57,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
   const [width, setWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
   const [active, setActive] = useState("home"); // if any element in sidebar is selected 
-  const { uploadFiles, uploading } = useFiles();
+  const { uploadFiles, uploading, refreshFiles } = useFiles(); //@ahmed
   const { user } = useAuth() || {};
   const MIN_WIDTH = 200;
   const MAX_WIDTH = 280;
@@ -156,6 +156,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
 
       // optional: reload or navigate so new folder shows immediately
       // navigate(0);
+      refreshFiles(); //@ahmed
     } catch (err) {
       console.error("Failed to create folder from sidebar:", err);
       alert(err.message || "Failed to create folder");
@@ -454,18 +455,17 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
                 <Box
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (item.id === 'drive') setOpenDrive((v) => !v);
                     if (item.id === 'computers') setOpenComputers((v) => !v);
                   }}
                   sx={{
-                    display: (item.id === 'drive' || item.id === 'computers') ? 'flex' : 'none',
+                    display: (item.id === 'computers') ? 'flex' : 'none',
                     alignItems: 'center',
                     pr: 0.5,
                     color: active === item.id ? '#0b57d0' : '#5f63g8',
                     cursor: 'pointer',
                   }}
                 >
-                  {(item.id === 'drive' && openDrive) || (item.id === 'computers' && openComputers)
+                  {(item.id === 'computers' && openComputers)
                     ? <KeyboardArrowDownIcon fontSize="small" />
                     : <KeyboardArrowRightIcon fontSize="small" />}
                 </Box>
@@ -484,41 +484,6 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
                   }}
                 />
               </Container>
-              {/* Collapsible submenu for Drive */}
-              {item.id === 'drive' && (
-                <Collapse in={openDrive} timeout="auto" unmountOnExit>
-                  <List disablePadding>
-                    <ListItemButton sx={{
-                      alignSelf: 'flex-start',
-                      width: 'fit-content',
-                      borderRadius: '999px',
-                      ml: 4.5,
-                      mr: 1,
-                      px: 1.25,
-                      fontSize: 14,
-                      color: '#202124',
-                      bgcolor: 'transparent',
-                      '&:hover': { bgcolor: '#f1f3f4' },
-                    }}>
-                      <ListItemText primary="My Files" primaryTypographyProps={{ fontWeight: 400 }} />
-                    </ListItemButton>
-                    <ListItemButton sx={{
-                      alignSelf: 'flex-start',
-                      width: 'fit-content',
-                      borderRadius: '999px',
-                      ml: 4.5,
-                      mr: 1,
-                      px: 1.25,
-                      fontSize: 14,
-                      color: '#202124',
-                      bgcolor: 'transparent',
-                      '&:hover': { bgcolor: '#f1f3f4' },
-                    }}>
-                      <ListItemText primary="Shared drives" primaryTypographyProps={{ fontWeight: 400 }} />
-                    </ListItemButton>
-                  </List>
-                </Collapse>
-              )}
 
               {/* Collapsible submenu for Computers */}
               {item.id === 'computers' && (

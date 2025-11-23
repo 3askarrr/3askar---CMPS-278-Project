@@ -8,6 +8,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import { isItemVisible } from "../utils/filterHelpers";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
@@ -46,6 +47,11 @@ function Starred() {
     clearSelection,
     selectAll,
     starredFiles: contextStarredFiles,
+    // Filter states
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter
   } = useFiles();
 
   const [viewMode, setViewMode] = React.useState("list");
@@ -169,6 +175,14 @@ function Starred() {
     clearSelection();
   }, [clearSelection]);
 
+  // Use shared filtering logic
+  const {
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+    sourceFilter,
+  } = useFiles();
 
   const starredFiles = React.useMemo(
     () => {
@@ -187,7 +201,22 @@ function Starred() {
   );
 
   const sortedFiles = React.useMemo(() => {
-    return [...starredFiles].sort((a, b) => {
+    // Filter FIRST, then Sort
+    const filtered = starredFiles.filter((item) =>
+      isItemVisible(item, {
+        filterMode,
+        typeFilter,
+        peopleFilter,
+        modifiedFilter,
+        sourceFilter,
+        matchesCurrentUser,
+        matchTypeFilter,
+        filterByModified,
+        matchesSource,
+      })
+    );
+
+    return filtered.sort((a, b) => {
       const valueA =
         sortField === "date"
           ? Number(new Date(a.lastAccessedAt || a.uploadedAt || a.date))
@@ -201,7 +230,20 @@ function Starred() {
       if (sortDirection === "asc") return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
       return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
     });
-  }, [starredFiles, sortField, sortDirection]);
+  }, [
+    starredFiles,
+    sortField,
+    sortDirection,
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter,
+    sourceFilter,
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+  ]);
 
   const selectedCount = React.useMemo(
     () => sortedFiles.reduce((acc, f) => {

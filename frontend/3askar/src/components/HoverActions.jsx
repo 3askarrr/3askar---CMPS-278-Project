@@ -30,13 +30,13 @@ function HoverActions({
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const baseStyles = disableWrapper
+  const containerStyles = disableWrapper //@ameera
     ? {
       position: "relative",
       display: "flex",
       alignItems: "center",
       cursor: "pointer",
-      "&:hover": { backgroundColor: "#f8f9fa" },
+      ...sx, //@ameera
     }
     : {
       position: "relative",
@@ -46,10 +46,9 @@ function HoverActions({
       py: 1.5,
       borderBottom: "1px solid #f1f3f4",
       cursor: "pointer",
-      "&:hover": { backgroundColor: "#f8f9fa" },
+      ...sx, //@ameera
     };
 
-  const containerStyles = { ...baseStyles, ...sx };
 
   return (
     <Box
@@ -66,11 +65,11 @@ function HoverActions({
         <Box
           sx={{
             position: "absolute",
-            right: 50, // appears before it's past kebab menu
+            right: 50, // @ameera
             display: "flex",
             alignItems: "center",
             gap: 1,
-            // backgroundColor: "transparent", // Removed white background to fix "white rectangle" issue
+            backgroundColor: "transparent", //@ameera
             padding: "4px 6px",
             borderRadius: "6px",
             zIndex: 3,

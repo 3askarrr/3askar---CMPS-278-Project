@@ -126,7 +126,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
         });
         uploadStream.on("error", (err) => {
             console.error("Error uploading file to GridFS:", err);
-            res.status(500).json({ message: "Upload failed"});
+            res.status(500).json({ message: "Upload failed" });
         });
         readStream.pipe(uploadStream);
     } catch (err) {
@@ -605,16 +605,17 @@ router.delete("/:id/permanent", async (req, res) => {
 
         // 2. Get length from GridFS
         const files = await gridfsBucket.find({ _id: gridId }).toArray();
-        if (!files || !files.length)
-            return res.status(404).json({ message: "GridFS file not found" });
+        if (files && files.length > 0){
+            const gridFile = files[0];
 
-        const gridFile = files[0];
+            // 3. Remove storage usage
+            await updateStorage(req.user._id, gridFile.length, "remove");
 
-        // 3. Remove storage usage
-        await updateStorage(req.user._id, gridFile.length, "remove");
-
-        // 4. Delete GridFS bytes
-        await gridfsBucket.delete(gridId);
+            // 4. Delete GridFS bytes
+            await gridfsBucket.delete(gridId);
+        } else {
+            console.warn(`GridFS file not found for ${gridId}, deleting metadata only.`);
+        }
 
         // 5. Delete metadata
         await File.deleteOne({ _id: fileId });
@@ -879,7 +880,6 @@ router.get("/shared", async (req, res) => {
 
         const files = await File.find({
             "sharedWith.user": req.user._id,
-            isDeleted: false
         })
         .populate("owner", OWNER_FIELDS)
         .populate(SHARED_WITH_POPULATE);

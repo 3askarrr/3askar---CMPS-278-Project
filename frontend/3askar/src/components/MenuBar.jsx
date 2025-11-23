@@ -1,4 +1,3 @@
-// ...existing code...
 import React from "react";
 import {
   Box,
@@ -42,6 +41,7 @@ const renderTypeIcon = (label) => {
 };
 
 function MenuBar({ visibleFiles } = {}) {
+  // 1. Hooks called at the top level (Correct)
   const {
     filteredFiles,
     filterMode,
@@ -52,13 +52,16 @@ function MenuBar({ visibleFiles } = {}) {
     setPeopleFilter,
     modifiedFilter,
     setModifiedFilter,
-    sourceFilter,
+    sourceFilter, // Now used in the render below
     setSourceFilter,
   } = useFiles();
+
   const { user } = useAuth() || {};
+  
   const currentUserId = user?._id ? user._id.toString() : null;
   const currentUserEmail =
     typeof user?.email === "string" ? user.email.toLowerCase() : null;
+    
   const currentUserName = React.useMemo(() => {
     const value =
       typeof user?.name === "string"
@@ -69,10 +72,11 @@ function MenuBar({ visibleFiles } = {}) {
     return value ? value.trim().toLowerCase() : null;
   }, [user]);
 
-  // Use the full list (remove arbitrary 20-slice) so menus include folders/people beyond first 20
   const scopedFiles = React.useMemo(() => {
-    const list = Array.isArray(visibleFiles) ? visibleFiles : filteredFiles;
-    return Array.isArray(list) ? list : [];
+    if (Array.isArray(visibleFiles)) {
+      return visibleFiles.slice(0, 20);
+    }
+    return Array.isArray(filteredFiles) ? filteredFiles.slice(0, 20) : [];
   }, [visibleFiles, filteredFiles]);
 
   const normalizeName = React.useCallback((value) => {
@@ -87,15 +91,15 @@ function MenuBar({ visibleFiles } = {}) {
 
     if (typeof value === "object") {
       const id =
-        value._id ?? value.id ?? (typeof value.toString === "function" ? value.toString() : null);
+        value._id ??
+        value.id ??
+        (typeof value.toString === "function" ? value.toString() : null);
 
       if (!id || id === "[object Object]") {
         return null;
       }
-
       return id.toString();
     }
-
     return null;
   }, []);
 
@@ -128,18 +132,14 @@ function MenuBar({ visibleFiles } = {}) {
           .trim();
 
       if (name.endsWith(".pdf")) set.add("PDFs");
+      //menu types
       if (/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(name)) set.add("Images");
       if (/\.(mp4|mov|mkv|avi|webm)$/i.test(name)) set.add("Videos");
       if (/\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(name)) set.add("Audio");
       if (/\.(doc|docx|txt|rtf)$/i.test(name)) set.add("Documents");
       if (/\.(xls|xlsx|csv)$/i.test(name)) set.add("Spreadsheets");
       if (/\.(ppt|pptx|key)$/i.test(name)) set.add("Presentations");
-
-      // Broaden folder detection to handle different backends
-      const ft = (file.type || "").toString().toLowerCase();
-      const isFolder =
-        ft === "folder" || ft === "dir" || ft === "directory" || file.isFolder === true;
-      if (isFolder) set.add("Folders");
+      if ((file.type || "").toLowerCase() === "folder") set.add("Folders");
 
       const mime = (file.type || "").toLowerCase();
       if (mime.includes("pdf")) set.add("PDFs");
@@ -177,34 +177,20 @@ function MenuBar({ visibleFiles } = {}) {
     scopedFiles.forEach((file) => {
       if (!file) return;
 
-      // Robust owner extraction: owner may be string, object, or id field
-      const ownerId =
-        extractIdString(file.ownerId) ||
-        extractIdString(file.owner) ||
-        extractIdString(file.owner?._id) ||
-        null;
-
+      const ownerId = file.ownerId ? file.ownerId.toString() : null;
       const ownerEmail =
-        (typeof file.ownerEmail === "string" && file.ownerEmail.toLowerCase()) ||
-        (file.owner && typeof file.owner.email === "string" && file.owner.email.toLowerCase()) ||
-        null;
-
+        typeof file.ownerEmail === "string"
+          ? file.ownerEmail.toLowerCase()
+          : null;
       const ownerNameRaw =
-        (typeof file.owner === "string" && file.owner.trim()) ||
-        (file.owner && typeof file.owner.name === "string" && file.owner.name.trim()) ||
-        (file.owner && typeof file.owner.fullName === "string" && file.owner.fullName.trim()) ||
-        "";
+        typeof file.owner === "string" ? file.owner.trim() : "";
       const ownerName = normalizeName(ownerNameRaw);
 
       if (!isCurrentUserReference(ownerId, ownerEmail, ownerNameRaw)) {
-        const ownerKey =
-          ownerId ||
-          ownerEmail ||
-          ownerName ||
-          extractIdString(file.id) ||
-          extractIdString(file._id) ||
-          null;
-        const ownerDisplay = ownerNameRaw || ownerEmail || "Unknown owner";
+        const ownerKey = ownerId || ownerEmail || ownerName || file.id;
+        const ownerDisplay =
+          ownerNameRaw ||
+          (file.ownerEmail ? file.ownerEmail : "Unknown owner");
 
         addEntry({
           key: `owner:${ownerKey}`,
@@ -345,14 +331,7 @@ function MenuBar({ visibleFiles } = {}) {
 
   return (
     <Box sx={{ backgroundColor: "#ffffff", px: 2, py: 1 }}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          flexWrap: { xs: "wrap", md: "nowrap" },
-        }}
-      >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 
         {/* Files / Folders toggle */}
         <ToggleButtonGroup
@@ -597,10 +576,11 @@ function MenuBar({ visibleFiles } = {}) {
             </MenuItem>,
           ]}
 
-          {/* SOURCE */}
+          {/* SOURCE (Location) - FIXED to use sourceFilter */}
           {activeFilter === "source" && [
             <MenuItem
               key="anywhere"
+              selected={sourceFilter === "anywhere" || !sourceFilter}
               onClick={() => {
                 setSourceFilter("anywhere");
                 handleClose();
@@ -610,6 +590,7 @@ function MenuBar({ visibleFiles } = {}) {
             </MenuItem>,
             <MenuItem
               key="mydrive"
+              selected={sourceFilter === "myDrive"}
               onClick={() => {
                 setSourceFilter("myDrive");
                 handleClose();
@@ -619,6 +600,7 @@ function MenuBar({ visibleFiles } = {}) {
             </MenuItem>,
             <MenuItem
               key="shared"
+              selected={sourceFilter === "shared"}
               onClick={() => {
                 setSourceFilter("shared");
                 handleClose();
@@ -650,4 +632,3 @@ const btnStyle = {
 };
 
 export default MenuBar;
-// ...existing code...

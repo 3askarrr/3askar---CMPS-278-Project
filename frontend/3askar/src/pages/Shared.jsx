@@ -7,6 +7,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
+import { isItemVisible } from "../utils/filterHelpers";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
@@ -60,6 +61,11 @@ function Shared() {
     toggleFolderSelection,
     clearSelection,
     selectAll,
+    // Filter states
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter
   } = useFiles();
 
   const navigate = useNavigate();
@@ -114,6 +120,14 @@ function Shared() {
     clearSelection();
   }, [clearSelection]);
 
+  // Use shared filtering logic
+  const {
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+    sourceFilter,
+  } = useFiles();
 
   const sharedFiles = React.useMemo(
     () => filterBySource(undefined, "shared"),
@@ -121,8 +135,23 @@ function Shared() {
   );
 
   const sortedFiles = React.useMemo(() => {
-    const data = [...sharedFiles];
-    data.sort((a, b) => {
+    // Filter FIRST
+    const filtered = sharedFiles.filter((item) =>
+      isItemVisible(item, {
+        filterMode,
+        typeFilter,
+        peopleFilter,
+        modifiedFilter,
+        sourceFilter,
+        matchesCurrentUser,
+        matchTypeFilter,
+        filterByModified,
+        matchesSource,
+      })
+    );
+
+    // Then Sort
+    return filtered.sort((a, b) => {
       const valueA = getSortValue(a, sortField);
       const valueB = getSortValue(b, sortField);
 
@@ -141,8 +170,20 @@ function Shared() {
       if (textA > textB) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-    return data;
-  }, [sharedFiles, sortField, sortDirection]);
+  }, [
+    sharedFiles,
+    sortField,
+    sortDirection,
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter,
+    sourceFilter,
+    matchesCurrentUser,
+    matchTypeFilter,
+    filterByModified,
+    matchesSource,
+  ]);
 
   // Handlers
   const openMenu = (event, file) => {

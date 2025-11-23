@@ -1,10 +1,12 @@
 ﻿import React from "react";
-import { Box, Typography, IconButton, Menu, MenuItem, Checkbox, Grid, Paper } from "@mui/material";
+import { Box, Typography, IconButton, Menu, MenuItem, Checkbox, Grid, Paper, ListItemIcon } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
 import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
+import RestoreFromTrashIcon from "@mui/icons-material/RestoreFromTrash"; //@ameera
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever"; //@ameera
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
 import HoverActions from "../components/HoverActions.jsx";
@@ -53,6 +55,11 @@ function Bin() {
     selectAll,
     toggleStar,
     downloadFile,
+    // Filter states
+    filterMode,
+    typeFilter,
+    peopleFilter,
+    modifiedFilter
   } = useFiles();
 
   const [sortField, setSortField] = React.useState("name");
@@ -68,8 +75,38 @@ function Bin() {
     [filterBySource]
   );
 
+  // Filtering helper
+  const isItemVisible = (item) => {
+    // A. Filter Mode (Files vs Folders)
+    if (filterMode === "files" && item.type === "folder") return false;
+    if (filterMode === "folders" && item.type !== "folder") return false;
+
+    // B. Type Filter
+    if (typeFilter) {
+      const name = (item.name || "").toLowerCase();
+      const type = (item.type || "").toLowerCase();
+      
+      if (typeFilter === "Folders" && type !== "folder") return false;
+      if (typeFilter === "PDFs" && !name.endsWith(".pdf") && !type.includes("pdf")) return false;
+      if (typeFilter === "Images" && !type.startsWith("image/") && !/\.(png|jpg|jpeg|gif|webp)$/i.test(name)) return false;
+    }
+
+    // C. Modified Filter
+    if (modifiedFilter) {
+      const date = new Date(item.deletedAt || item.lastAccessedAt || item.uploadedAt);
+      const today = new Date();
+      if (modifiedFilter === "today" && date.toDateString() !== today.toDateString()) return false;
+    }
+
+    // D. People Filter
+    if (peopleFilter === "owned" && (item.owner !== "me" && item.owner !== "Me")) return false;
+    
+    return true;
+  };
+
   const sortedFiles = React.useMemo(() => {
-    const data = [...deletedFiles];
+    // Filter FIRST
+    const data = deletedFiles.filter(isItemVisible);
 
     data.sort((a, b) => {
       const valueA = getSortValue(a, sortField);
@@ -94,7 +131,7 @@ function Bin() {
     });
 
     return data;
-  }, [deletedFiles, sortField, sortDirection]);
+  }, [deletedFiles, sortField, sortDirection, filterMode, typeFilter, peopleFilter, modifiedFilter]);
 
   const selectedCount = React.useMemo(
     () => sortedFiles.reduce((acc, f) => {
@@ -253,11 +290,11 @@ function Bin() {
                 onChange={handleHeaderToggle}
               />
             </Box>
-            <Box sx={{ flex: 4 }} onClick={() => handleSort("name")}>
+            <Box sx={{ flex: 4 }} onClick={() => handleSort("name")}> 
               Name{renderSortIndicator("name")}
             </Box>
 
-            <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("owner")}>
+            <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("owner")}>
               Owner{renderSortIndicator("owner")}
             </Box>
 
@@ -265,7 +302,7 @@ function Bin() {
               Original location{renderSortIndicator("originalLocation")}
             </Box>
 
-            <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("dateDeleted")}>
+            <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }} onClick={() => handleSort("dateDeleted")}>
               Date deleted{renderSortIndicator("dateDeleted")}
             </Box>
 
@@ -299,17 +336,18 @@ function Bin() {
                       onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
                     />
                   </Box>
-                  <Box sx={{ flex: 1, display: "flex", width: "100%" }}>
                     <HoverActions
                       key={file.id}
                       file={file}
                       sx={{ flex: 1 }}
-                      toggleStar={() => null} // no star in trash
-                      openShareDialog={() => null} // no share in trash
-                      openMenu={(e) => handleOpenMenu(e, file)}
-                      downloadFile={() => { }}
+                      toggleStar={toggleStar} // @ameera
+                      openShareDialog={OpenShareDialog} // @ameera
+                      openMenu={(e) => handleOpenMenu(e, file)} 
+                      downloadFile={downloadFile} // @ameera
                       formatDate={formatDate}
                       showRename={false}
+                      showStar={false} //@ameera
+                      disableWrapper //@ameera
                       renderContent={(file) => (
                         <>
                           <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -326,19 +364,19 @@ function Bin() {
                             <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
                           </Box>
 
-                          <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }}>
+                          <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}> {/*@ameera*/}
                             <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                               {file.owner || "Unknown"}
                             </Typography>
                           </Box>
 
-                          <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
-                            <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>  {/*@ameera*/}
+                            <Typography sx={{ color: "#5f6368", fontSize: 14 }}> 
                               {file.location || "My Drive"}
                             </Typography>
                           </Box>
 
-                          <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }}>
+                          <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}> {/*@ameera*/}
                             <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
                               {formatDate(file.deletedAt || file.lastAccessedAt || file.uploadedAt)}
                             </Typography>
@@ -346,7 +384,6 @@ function Bin() {
                         </>
                       )}
                     />
-                  </Box>
                 </Box >
               );
             })
@@ -452,8 +489,18 @@ function Bin() {
       )}
 
       <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={handleCloseMenu}>
-        <MenuItem onClick={handleRestore}>Restore</MenuItem>
-        <MenuItem onClick={handleDeleteForever}>Delete forever</MenuItem>
+        <MenuItem onClick={handleRestore}>
+          <ListItemIcon>
+            <RestoreFromTrashIcon fontSize="small" />
+          </ListItemIcon>
+          Restore
+        </MenuItem>
+        <MenuItem onClick={handleDeleteForever}>
+          <ListItemIcon>
+            <DeleteForeverIcon fontSize="small" />
+          </ListItemIcon>
+          Delete forever
+        </MenuItem>
       </Menu>
 
       <ShareDialog
