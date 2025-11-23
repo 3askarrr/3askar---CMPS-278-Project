@@ -26,10 +26,11 @@ function HoverActions({
   showRename = true,
   showStar = true,
   disableWrapper = false,
+  sx = {},
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const containerStyles = disableWrapper
+  const baseStyles = disableWrapper
     ? {
       position: "relative",
       display: "flex",
@@ -47,6 +48,8 @@ function HoverActions({
       cursor: "pointer",
       "&:hover": { backgroundColor: "#f8f9fa" },
     };
+
+  const containerStyles = { ...baseStyles, ...sx };
 
   return (
     <Box

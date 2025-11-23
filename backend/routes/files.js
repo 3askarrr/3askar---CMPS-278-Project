@@ -23,6 +23,7 @@ const Folder = require("../models/Folder");
 
 const OWNER_FIELDS = "name email picture";
 const SHARED_WITH_POPULATE = { path: "sharedWith.user", select: OWNER_FIELDS };
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 async function findFolderByAnyId(id) { // NEW 
   if (!id) return null;
@@ -46,7 +47,7 @@ mongoose.connection.once("open", () => {
     gridfsBucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
         bucketName: "files",
     });
-    console.log("âœ… GridFS Bucket initialized in files route");
+    console.log("GridFS Bucket initialized in files route");
 });
 
 // router.use((req, res, next) => { //for testing with Postman
@@ -79,6 +80,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
             return res.status(400).json({ message: "No file uploaded" });
         }
         const { originalname, mimetype, size, buffer } = req.file;
+        if (size > MAX_UPLOAD_BYTES) {
+            return res.status(413).json({ message: "File exceeds 100 MB limit" });
+        }
         const user = await User.findById(req.user._id);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
