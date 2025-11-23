@@ -505,7 +505,10 @@ router.patch("/:id/star", async (req, res) => {
         if (!req.user) return res.status(401).json({ message: "Not authenticated" });
 
         const updated = await File.findOneAndUpdate(
-            { _id: req.params.id, owner: req.user._id },
+            {
+                _id: req.params.id,
+                $or: [{ owner: req.user._id }, { "sharedWith.user": req.user._id }],        //@ahmed
+            },
             { $set: { isStarred: !!isStarred } },
             { new: true }
         )
@@ -1140,13 +1143,112 @@ router.get("/search", async (req, res) => {
         }
 
         const mongoQuery = andConditions.length ? { $and: andConditions } : {};
-
-        const results = await File.find(mongoQuery)
+        // 1. Search Files
+        const fileResults = await File.find(mongoQuery) //@ameera
             .populate("owner", OWNER_FIELDS)
             .populate("sharedWith.user", "firstName lastName email")
             .sort({ uploadDate: -1 });
 
-        res.json(results);
+        // 2. Search Folders (only if type is 'any' or 'folders')
+        let folderResults = [];
+        if (!type || type === "any" || type === "folders") {
+            // Adapt query for folders
+            // Folders don't have 'filename' or 'originalName', they have 'name'
+            // They don't have 'description' usually (unless added), assuming basic search for now
+
+            const folderConditions = [];
+
+            // Visibility
+            folderConditions.push({
+                $or: [{ owner: req.user._id }, { "sharedWith.user": req.user._id }],
+            });
+
+            // In Bin
+            if (inBin === "true") {
+                folderConditions.push({ isDeleted: true });
+            } else {
+                folderConditions.push({ isDeleted: false });
+            }
+
+            // Location
+            if (location === "mydrive") {
+                folderConditions.push({
+                    owner: req.user._id,
+                    parentFolder: null // Root folders only? Or all my drive folders? 
+                    // Actually "My Drive" usually means owned by me, not necessarily root.
+                    // But for consistency with files, let's just check ownership.
+                });
+            } else if (location === "shared") {
+                folderConditions.push({
+                    "sharedWith.user": req.user._id,
+                });
+            }
+
+            // Owner
+            if (owner === "me") {
+                folderConditions.push({ owner: req.user._id });
+            } else if (owner === "notMe") {
+                folderConditions.push({ owner: { $ne: req.user._id } });
+            } else if (owner === "person" && ownerId) {
+                const specificOwner = toObjectId(ownerId) || ownerId;
+                folderConditions.push({ owner: specificOwner });
+            }
+
+            // Starred
+            if (starred === "true") {
+                folderConditions.push({ isStarred: true });
+            }
+
+            // Text Search (q)
+            if (q && q.trim()) {
+                const regex = new RegExp(q.trim(), "i");
+                folderConditions.push({ name: regex });
+            }
+
+            // Item Name
+            if (itemName && itemName.trim()) {
+                const regexName = new RegExp(itemName.trim(), "i");
+                folderConditions.push({ name: regexName });
+            }
+
+            // Date Modified (using createdAt or updatedAt for folders)
+            if (start || end) {
+                const dateQuery = {};
+                if (start) dateQuery.$gte = start;
+                if (end) dateQuery.$lte = end;
+                folderConditions.push({ updatedAt: dateQuery });
+            }
+
+            const folderMongoQuery = folderConditions.length ? { $and: folderConditions } : {};
+
+            folderResults = await Folder.find(folderMongoQuery)
+                .populate("owner", OWNER_FIELDS)
+                .populate("sharedWith.user", "firstName lastName email")
+                .sort({ updatedAt: -1 });
+        }
+
+        // 3. Combine and Sort
+        // Add 'type' field to folders if missing, or rely on frontend check
+        const normalizedFolders = folderResults.map(f => ({
+            ...f.toObject(),
+            type: 'folder',
+            // Map folder fields to match file structure where possible if needed, 
+            // but frontend handles difference usually.
+            // Folders have 'name', files have 'filename'.
+        }));
+
+        const normalizedFiles = fileResults.map(f => f.toObject());
+
+        const combined = [...normalizedFolders, ...normalizedFiles];
+
+        // Sort by date (newest first)
+        combined.sort((a, b) => {
+            const dateA = new Date(a.uploadDate || a.updatedAt || 0);
+            const dateB = new Date(b.uploadDate || b.updatedAt || 0);
+            return dateB - dateA;
+        });
+
+        res.json(combined);
     } catch (err) {
         console.error("Error in GET /files/search:", err);
         res.status(500).json({ message: "Server error during file search" });

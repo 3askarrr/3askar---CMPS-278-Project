@@ -251,7 +251,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
     setRootFolders((prev) =>
       prev.map((f) =>
         f._id === updatedFolder._id || f.publicId === updatedFolder.publicId
-          ? updatedFolder
+          ? normalizeFolderOwner(updatedFolder)
           : f
       )
     );
@@ -403,6 +403,29 @@ function Homepage({ initialView = "MY_DRIVE" }) {
 
 
 
+  // Normalize folder owner field (handle both populated objects and string IDs)
+  const normalizeFolderOwner = (folder) => {
+    if (!folder) return folder;
+    if (folder.owner && typeof folder.owner === 'object') {
+      // Owner is populated - extract name string
+      let fullName = null;
+      if (folder.owner.firstName) {
+        fullName = folder.owner.firstName;
+        if (folder.owner.lastName) {
+          fullName += ` ${folder.owner.lastName}`;
+        }
+        fullName = fullName.trim();
+      }
+      const ownerName = folder.owner.name || 
+                       fullName || 
+                       folder.owner.email || 
+                       "Unknown";
+      return { ...folder, owner: ownerName };
+    }
+    // Owner is already a string or doesn't exist - return as is
+    return folder;
+  };
+
   const loadFoldersForCurrentView = async () => {
     try {
       setFoldersLoading(true);
@@ -422,7 +445,12 @@ function Homepage({ initialView = "MY_DRIVE" }) {
         folders = await getRecentFolders(30);
       }
 
-      setRootFolders(folders);
+      // Normalize folders to ensure owner is always a string
+      const normalizedFolders = Array.isArray(folders) 
+        ? folders.map(normalizeFolderOwner)
+        : [];
+
+      setRootFolders(normalizedFolders);
     } catch (err) {
       console.error("Failed to load folders", err);
       setFoldersError(err.message || "Failed to load folders");
@@ -827,7 +855,7 @@ function Homepage({ initialView = "MY_DRIVE" }) {
                 if (isLast) return;
 
                 if (item._id === null) {
-                  navigate("/drive");
+                  navigate("/mydrive");
                 } else {
                   navigate(`/folders/${item.publicId || item._id}`);
                 }
@@ -939,24 +967,6 @@ function Homepage({ initialView = "MY_DRIVE" }) {
             </Typography>
 
           </AccordionSummary>
-
-          <Button
-            // Render as a non-button element to avoid nested <button> inside AccordionSummary
-            component="span"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCreateFolder();
-            }}
-            sx={{
-              textTransform: "none",
-              fontSize: 13,
-              color: "#1a73e8",
-            }}
-          >
-            New folder
-          </Button>
 
           <AccordionDetails sx={{ backgroundColor: "#ffffff", px: 0 }}>
             <Grid container spacing={2}>

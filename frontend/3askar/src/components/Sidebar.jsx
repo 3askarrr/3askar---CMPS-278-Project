@@ -81,6 +81,26 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
     setIsResizing(true);
   }, []);
 
+  //@ahmed
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === "/" || path.startsWith("/folders/")) {
+      setActive("home");
+    } else if (path === "/shared") {
+      setActive("shared");
+    } else if (path === "/recent") {
+      setActive("recent");
+    } else if (path === "/starred") {
+      setActive("starred");
+    } else if (path === "/bin") {
+      setActive("trash");
+    } else if (path === "/computers") {
+      setActive("computers");
+    } else if (path === "/mydrive") {
+      setActive("mydrive");
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     if (!isResizing) return;
 
@@ -220,6 +240,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
         location: "My Drive",
         path: pathArray,
       });
+      window.location.reload() //@ameera
     } catch (err) {
       console.error("Upload failed:", err);
       alert(err.message || "Upload failed");
@@ -297,6 +318,7 @@ const Sidebar = ({ mobileOpen, onDrawerToggle }) => {
           path: folderInfo.pathArray,
         });
       }
+      refreshFiles(); //@ahmed
     } catch (err) {
       console.error("Folder upload failed:", err);
       alert(err.message || "Folder upload failed");

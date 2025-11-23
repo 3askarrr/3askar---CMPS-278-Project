@@ -89,7 +89,10 @@ router.post("/star", async (req, res) => {
     // Update Files
     if (fileIds.length > 0) {
       await File.updateMany(
-        { _id: { $in: fileIds }, owner: userId },
+        {
+          _id: { $in: fileIds },
+          $or: [{ owner: userId }, { "sharedWith.user": userId }],  //@ahmed
+        },
         { $set: { isStarred } }
       );
     }

@@ -54,15 +54,48 @@ function ShareDialog({ open, file, onClose }) {
     return `${window.location.origin}/files/${file.id}/download`;
   }, [file, isFolder, targetId]);
 
+  // Helper function to fetch collaborators from backend
+  const fetchCollaborators = React.useCallback(async () => {
+    if (!targetId) return;
+
+    try {
+      if (isFolder) {
+        const res = await apiClient.get(`/folders/${targetId}`);
+        if (res.data && Array.isArray(res.data.sharedWith)) {
+          setCollaborators(res.data.sharedWith);
+        } else {
+          setCollaborators([]);
+        }
+      } else {
+        // For files, fetch from /files endpoint and find matching file
+        const res = await apiClient.get("/files");
+        const fileData = res.data?.find((f) => f._id === targetId || f.id === targetId);
+        if (fileData && Array.isArray(fileData.sharedWith)) {
+          setCollaborators(fileData.sharedWith);
+        } else {
+          setCollaborators([]);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching collaborators:", err);
+      // Fallback to prop data if available
+      if (file && Array.isArray(file.sharedWith)) {
+        setCollaborators(file.sharedWith);
+      } else {
+        setCollaborators([]);
+      }
+    }
+  }, [targetId, isFolder, file]);
+
   // ---------- EFFECTS ----------
-  // When a new file/folder is opened, load its collaborators
+  // When a new file/folder is opened, load its collaborators from backend
   React.useEffect(() => {
-    if (file && Array.isArray(file.sharedWith)) {
-      setCollaborators(file.sharedWith);
-    } else {
+    if (open && targetId) {
+      fetchCollaborators();
+    } else if (!open) {
       setCollaborators([]);
     }
-  }, [file]);
+  }, [open, targetId, fetchCollaborators]);
 
   // Reset inputs when dialog closes
   React.useEffect(() => {
@@ -110,14 +143,21 @@ function ShareDialog({ open, file, onClose }) {
 
       // Attempt to share. Backend requires the current user to be the owner;
       // if not, the route will return 404 (File not found)
-      try {
-        await apiClient.patch(`/files/${file.id}/share`, {
-          userId: user._id,
-          permission,
-        });
+      try { 
+        if (isFolder) { //@ameera
+          await apiClient.patch(`/folders/${targetId}/share`, { 
+            userId: user._id,
+            canEdit: permission === "write",
+          });
+        } else { //@ameera
+          await apiClient.patch(`/files/${targetId}/share`, { 
+            userId: user._id,
+            permission,
+          });
+        }
 
-        // Update UI
-        setCollaborators((prev) => [...prev, { user, permission }]);
+        // Refresh collaborators from backend
+        await fetchCollaborators();
         setEmail("");
         setPermission("read");
       } catch (shareErr) {
@@ -154,26 +194,16 @@ function ShareDialog({ open, file, onClose }) {
           canEdit: newPerm === "write",
         });
 
-        setCollaborators((prev) =>
-          prev.map((c) =>
-            c.user._id === col.user._id
-              ? { ...c, canEdit: newPerm === "write" }
-              : c
-          )
-        );
+        // Refresh collaborators from backend
+        await fetchCollaborators();
       } else {
         await apiClient.patch(`/files/${targetId}/permission`, {
           userId: col.user._id,
           permission: newPerm,
         });
 
-        setCollaborators((prev) =>
-          prev.map((c) =>
-            c.user._id === col.user._id
-              ? { ...c, permission: newPerm }
-              : c
-          )
-        );
+        // Refresh collaborators from backend
+        await fetchCollaborators();
       }
     } catch (err) {
       console.error("Error updating permission:", err);
@@ -196,9 +226,8 @@ function ShareDialog({ open, file, onClose }) {
         });
       }
 
-      setCollaborators((prev) =>
-        prev.filter((c) => c.user._id !== col.user._id)
-      );
+      // Refresh collaborators from backend
+      await fetchCollaborators();
     } catch (err) {
       console.error("Error removing collaborator:", err);
       alert("Failed to remove collaborator.");

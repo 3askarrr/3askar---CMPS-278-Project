@@ -13,6 +13,7 @@ import HoverActions from "../components/HoverActions.jsx";
 import ShareDialog from "../components/ShareDialog.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
+import { useNavigate } from "react-router-dom";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -69,6 +70,8 @@ function Bin() {
   const [activeFile, setActiveFile] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [fileToShare, setFileToShare] = React.useState(null);
+
+  const navigate = useNavigate();
 
   const deletedFiles = React.useMemo(
     () => filterBySource(undefined, "trash"),
@@ -215,6 +218,12 @@ function Bin() {
     return sortDirection === "asc" ? " ^" : " v";
   };
 
+  const handleItemClick = (file) => {
+    if (isFolder(file)) {
+      navigate(`/folders/${file.id}`);
+    }
+  };
+
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading trash...</Typography>;
   }
@@ -320,6 +329,7 @@ function Bin() {
               return (
                 <Box
                   key={file.id}
+                  onClick={() => handleItemClick(file)}
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -327,6 +337,7 @@ function Bin() {
                     py: 1.5,
                     borderBottom: "1px solid #f1f3f4",
                     ...getRowStyles(selected),
+                    cursor: isFolderItem ? "pointer" : "default",
                   }}
                 >
                   <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
@@ -341,7 +352,7 @@ function Bin() {
                       file={file}
                       sx={{ flex: 1 }}
                       toggleStar={toggleStar} // @ameera
-                      openShareDialog={OpenShareDialog} // @ameera
+                      openShareDialog={openShareDialog} // @ameera
                       openMenu={(e) => handleOpenMenu(e, file)} 
                       downloadFile={downloadFile} // @ameera
                       formatDate={formatDate}
@@ -410,11 +421,11 @@ function Bin() {
                       position: "relative",
                       borderRadius: 2,
                       overflow: "hidden",
-                      cursor: "pointer",
+                      cursor: isFolderItem ? "pointer" : "default",
                       transition: "all 0.2s ease",
                       ...getCardStyles(selected),
                     }}
-                    onClick={() => { /* placeholder */ }}
+                    onClick={() => handleItemClick(file)}
                   >
                     {/* Grid view checkbox overlay */}
                     <Checkbox

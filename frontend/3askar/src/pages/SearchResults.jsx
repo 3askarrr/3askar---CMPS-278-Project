@@ -23,6 +23,8 @@ import { useFiles } from "../context/fileContext.jsx";
 import { searchFiles } from "../services/api/files";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
+import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
+import HoverActions from "../components/HoverActions"; //@ameera
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -70,7 +72,7 @@ const normalizeFile = (file) => {
   return {
     id: file._id?.toString() ?? file.id,
     gridFsId: file.gridFsId,
-    name: file.filename || file.originalName || "Untitled",
+    name: file.filename || file.originalName || file.name || "Untitled", //@ameera
     owner: ownerObject?.name || ownerObject?.email || "Me",
     ownerId: ownerObject?._id ?? file.owner ?? null,
     ownerEmail: ownerObject?.email,
@@ -112,12 +114,14 @@ function SearchResults() {
     renameFile,
     refreshFiles,
     toggleStar,
+    batchMove, //@ahmed
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
     toggleFolderSelection,
     clearSelection,
     selectAll,
+    downloadFile, //@ameera
   } = useFiles();
 
   const [results, setResults] = React.useState([]);
@@ -136,6 +140,9 @@ function SearchResults() {
 
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [fileToShare, setFileToShare] = React.useState(null);
+
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false); //@ahmed
+  const [moveTarget, setMoveTarget] = React.useState(null);
 
   const buildParams = React.useCallback(() => {
     const params = {};
@@ -198,10 +205,8 @@ function SearchResults() {
     if (!file) return;
     if ((file.type || "").toLowerCase() === "folder") {
       navigate(`/folders/${file.id}`);
-      return;
+      // return;    @ahmed
     }
-    setDetailsFile(file);
-    setDetailsPanelOpen(true);
   };
 
   const isItemSelected = (file) => {
@@ -249,6 +254,30 @@ function SearchResults() {
     await loadResults({ silent: true });
     refreshFiles();
   };
+
+ const handleStartMove = (item) => {
+   setMoveTarget(item);
+   setMoveDialogOpen(true);
+ };
+
+ const handleMoveConfirm = async (destinationFolderId) => {
+   if (!moveTarget) return;
+   const isFolderItem = (moveTarget.type || "").toLowerCase() === "folder";
+   const id = moveTarget.id || moveTarget._id;
+   try {
+     await batchMove(
+       isFolderItem ? [] : [id],
+       isFolderItem ? [id] : [],
+       destinationFolderId
+     );
+     await refreshFiles();
+     await loadResults({ silent: true });
+   } finally {
+     setMoveDialogOpen(false);
+     setMoveTarget(null);
+   }
+ };
+
 
   const handleActionComplete = (action) => {
     if (action === "download") return;
@@ -346,93 +375,84 @@ function SearchResults() {
           {results.map((file) => {
             const selected = isItemSelected(file);
             return (
-              <Box
+              <HoverActions //@a,eera
                 key={file.id}
+                file={file}
                 onClick={() => handleFileClick(file)}
+                toggleStar={toggleStar}
+                openShareDialog={(file) => {
+                  setFileToShare(file);
+                  setShareDialogOpen(true);
+                }}
+                openRenameDialog={(file) => {
+                  setFileToRename(file);
+                  setRenameDialogOpen(true);
+                }}
+                openMenu={openMenu}
+                downloadFile={downloadFile}
+                formatDate={formatDate}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  px: 2,
-                  py: 1.5,
-                  borderBottom: "1px solid #f1f3f4",
                   cursor: "pointer",
                   ...getRowStyles(selected),
                 }}
-              >
-                <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
-                  <Checkbox
-                    size="small"
-                    checked={selected}
-                    onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
-                  />
-                </Box>
-                <Box
-                  sx={{
-                    flex: 3,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                  }}
-                >
-                  <IconButton
-                    onClick={(e) => handleStarClick(e, file)}
-                    size="small"
-                  >
-                    <StarIcon
+               renderContent={(file) => (
+                  <>
+                    <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+                      <Checkbox
+                        size="small"
+                        checked={selected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectionFor(file);
+                        }}
+                      />
+                    </Box>
+                    <Box
                       sx={{
-                        color: file.isStarred ? "#f7cb4d" : "#c6c6c6",
-                        fontSize: 22,
+                        flex: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
                       }}
-                    />
-                  </IconButton>
+                    >
+                  
 
-                  {(file.type || "").toLowerCase() === "folder" ? (
-                    <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
-                  ) : (
-                    <img
-                      src={file.icon || DEFAULT_FILE_ICON}
-                      width={20}
-                      height={20}
-                      alt="file type"
-                    />
-                  )}
+                    {(file.type || "").toLowerCase() === "folder" ? (
+                      <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
+                    ) : (
+                      <img
+                        src={file.icon || DEFAULT_FILE_ICON}
+                        width={20}
+                        height={20}
+                        alt="file type"
+                      />
+                    )}
 
-                  <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
-                </Box>
+                    <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                  </Box>
 
-                <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
-                  <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                    {file.owner || "Unknown"}
-                  </Typography>
-                </Box>
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {file.owner || "Unknown"}
+                    </Typography>
+                  </Box>
 
-                <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
-                  <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                    {file.location || "My Drive"}
-                  </Typography>
-                </Box>
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {file.location || "My Drive"}
+                    </Typography>
+                  </Box>
 
-                <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
-                  <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-                    {formatDate(file.lastAccessedAt || file.uploadedAt)}
-                  </Typography>
-                </Box>
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+            />
 
-                <Box
-                  sx={{
-                    width: 40,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    onClick={(e) => openMenu(e, file)}
-                  >
-                    <MoreVertIcon sx={{ color: "#5f6368" }} />
-                  </IconButton>
-                </Box>
-              </Box>
+                
             );
           })}
         </>
@@ -524,6 +544,7 @@ function SearchResults() {
           setDetailsFile(file);
           setDetailsPanelOpen(true);
         }}
+        onStartMove={handleStartMove}
         onActionComplete={handleActionComplete}
       />
 
@@ -556,6 +577,17 @@ function SearchResults() {
           setFileToShare(null);
         }}
       />
+
+      <BatchMoveDialog
+       open={moveDialogOpen}
+       onClose={() => {
+         setMoveDialogOpen(false);
+         setMoveTarget(null);
+       }}
+       onMove={handleMoveConfirm}
+       selectedCount={1}
+       excludedFolderIds={moveTarget && (moveTarget.type || "").toLowerCase() === "folder" ? [moveTarget.id || moveTarget._id] : []}
+     />
     </Box>
   );
 }

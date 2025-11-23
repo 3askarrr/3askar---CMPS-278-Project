@@ -13,6 +13,7 @@ import RestoreFromTrashIcon from "@mui/icons-material/RestoreFromTrash";
 import { useFiles } from "../context/fileContext";
 import BatchMoveDialog from "./BatchMoveDialog";
 import BatchShareDialog from "./BatchShareDialog";
+import FileKebabMenu from "./FileKebabMenu";
 
 const BatchToolbar = ({ toolbarSource, visibleItems = [] }) => {
   const {
@@ -276,21 +277,26 @@ const BatchToolbar = ({ toolbarSource, visibleItems = [] }) => {
             </IconButton>
           </Tooltip>
 
-          <Menu
+          <FileKebabMenu //@ameera
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
-          >
-            {!isTrash && (
-              <MenuItem onClick={handleCopy}>
-                <ListItemIcon>
-                  <ContentCopyIcon fontSize="small" />
-                </ListItemIcon>
-                <ListItemText>Make a copy</ListItemText>
-              </MenuItem>
-            )}
-            {/* Add more menu items here if needed */}
-          </Menu>
+            // Batch mode - treat as "folder mode" by passing these props
+            onTrash={isTrash ? handleRestore : handleTrash}
+            onToggleStar={handleStar}
+            onCopy={handleCopy}
+            onMove={handleMoveClick}
+            onFolderShare={handleShareClick}
+            onDownloadFolder={handleDownload}
+
+            // State props
+            isStarred={selectedVisibleItems.every((item) => item?.isStarred)}
+            isInTrash={isTrash}
+
+            // Restrictions
+            showRename={false}
+            showInfo={false}
+          />
         </Box>
       </Box>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, IconButton, Checkbox, Grid, Paper } from "@mui/material";
+import { Box, Typography, IconButton, Checkbox, Grid, Paper, Alert } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ListIcon from "@mui/icons-material/ViewList";
 import GridViewIcon from "@mui/icons-material/GridView";
@@ -16,6 +16,7 @@ import HoverActions from "../components/HoverActions.jsx";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
 import DetailsPanel from "../components/DetailsPanel.jsx";
+import FolderDetailsPanel from "../components/FolderDetailsPanel.jsx";
 import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
 import { downloadFolderZip, updateFolder } from "../api/foldersApi.js";
 
@@ -83,6 +84,8 @@ function Shared() {
   const [fileToShare, setFileToShare] = React.useState(null);
   const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
   const [detailsFile, setDetailsFile] = React.useState(null);
+  const [folderDetailsOpen, setFolderDetailsOpen] = React.useState(false);
+  const [detailsFolder, setDetailsFolder] = React.useState(null);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
   const [moveTarget, setMoveTarget] = React.useState(null);
 
@@ -319,14 +322,26 @@ function Shared() {
   };
 
   const handleViewDetails = (file) => {
-    setDetailsFile(file);
-    setDetailsPanelOpen(true);
+    if (isFolder(file)) {
+      setDetailsFolder(file);
+      setFolderDetailsOpen(true);
+    } else {
+      setDetailsFile(file);
+      setDetailsPanelOpen(true);
+    }
+  };
+
+  const handleFolderDetails = (folder) => {
+    if (!folder) return;
+    setDetailsFolder(folder);
+    setFolderDetailsOpen(true);
   };
 
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading shared files...</Typography>;
   }
 
+  /* was causing white screen bug
   if (error) {
     return (
       <Typography sx={{ p: 2, color: "#d93025" }}>
@@ -334,6 +349,7 @@ function Shared() {
       </Typography>
     );
   }
+    */  //@ahmed
 
   return (
     <Box
@@ -353,6 +369,12 @@ function Shared() {
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
         Shared with me
       </Typography>
+
+      {error && ( //@ahmed
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {selectedCount > 0 ? <BatchToolbar visibleItems={sortedFiles} /> : <MenuBar visibleFiles={sortedFiles} />}
 
@@ -618,7 +640,7 @@ function Shared() {
         onToggleStar={selectedFile && isFolder(selectedFile) ? () => toggleStar(selectedFile.id) : undefined}
         onTrash={selectedFile && isFolder(selectedFile) ? () => moveToTrash(selectedFile.id) : undefined}
         onMove={selectedFile && isFolder(selectedFile) ? () => handleStartMove(selectedFile) : undefined}
-        onFolderDetails={selectedFile && isFolder(selectedFile) ? () => handleViewDetails(selectedFile) : undefined}
+        onFolderDetails={selectedFile && isFolder(selectedFile) ? () => handleFolderDetails(selectedFile) : undefined}
         isStarred={selectedFile?.isStarred}
         isInTrash={selectedFile?.isDeleted}
       />
@@ -630,6 +652,21 @@ function Shared() {
         onManageAccess={(file) => {
           setDetailsPanelOpen(false);
           openShareDialog(file);
+        }}
+      />
+
+      <FolderDetailsPanel
+        open={folderDetailsOpen}
+        folder={detailsFolder || (selectedFile && isFolder(selectedFile) ? selectedFile : null)}
+        onClose={() => {
+          setFolderDetailsOpen(false);
+          setDetailsFolder(null);
+        }}
+        onDescriptionUpdated={(updated) => {
+          if (updated) {
+            setDetailsFolder(updated);
+            refreshFiles();
+          }
         }}
       />
 

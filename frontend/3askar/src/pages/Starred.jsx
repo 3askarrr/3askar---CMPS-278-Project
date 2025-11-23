@@ -12,6 +12,7 @@ import { isItemVisible } from "../utils/filterHelpers";
 import FileKebabMenu from "../components/FileKebabMenu.jsx";
 import { isFolder } from "../utils/fileHelpers";
 import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
+import { useNavigate } from "react-router-dom";
 
 const DEFAULT_FILE_ICON =
   "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
@@ -19,6 +20,8 @@ import HoverActions from "../components/HoverActions.jsx";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
 import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
+import DetailsPanel from "../components/DetailsPanel.jsx";
+import FolderDetailsPanel from "../components/FolderDetailsPanel.jsx";
 import { downloadFolderZip, updateFolder } from "../api/foldersApi.js";
 
 const formatDate = (value) => {
@@ -68,7 +71,12 @@ function Starred() {
   const [fileToShare, setFileToShare] = React.useState(null);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
   const [moveTarget, setMoveTarget] = React.useState(null);
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+  const [folderDetailsOpen, setFolderDetailsOpen] = React.useState(false);
+  const [detailsFolder, setDetailsFolder] = React.useState(null);
 
+  const navigate = useNavigate();
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
   const anchorPosition = menuPosition
@@ -150,6 +158,18 @@ function Starred() {
     } else {
       downloadFile(item);
     }
+  };
+
+  const handleViewDetails = (file) => {
+    if (!file) return;
+    setDetailsFile(file);
+    setDetailsPanelOpen(true);
+  };
+
+  const handleFolderDetails = (folder) => {
+    if (!folder) return;
+    setDetailsFolder(folder);
+    setFolderDetailsOpen(true);
   };
 
   const handleRenameSubmit = async (newName) => {
@@ -291,6 +311,12 @@ function Starred() {
     return sortDirection === "asc" ? " ^" : " v";
   };
 
+  const handleItemClick = (file) => {
+    if (isFolder(file)) {
+      navigate(`/folders/${file.id}`);
+    }
+  };
+
   if (loading) {
     return <Typography sx={{ p: 2 }}>Loading starred items...</Typography>;
   }
@@ -383,10 +409,12 @@ function Starred() {
 
           {sortedFiles.map((file) => {
             const selected = isItemSelected(file);
+            const isFolderItem = isFolder(file);
             return (
               <Box
                 key={file.id}
                 onContextMenu={(e) => handleContextMenu(e, file)}
+                onClick={() => handleItemClick(file)}
                 sx={{
                   display: "flex",
                   alignItems: "center",
@@ -394,6 +422,7 @@ function Starred() {
                   py: 1.5,
                   borderBottom: "1px solid #f1f3f4",
                   ...getRowStyles(selected),
+                  cursor: isFolderItem ? "pointer" : "default",
                 }}
               >
                 <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
@@ -444,22 +473,23 @@ function Starred() {
       ) : (
         /* GRID VIEW */
         <Grid container spacing={2} sx={{ mt: 1 }}>
-          {sortedFiles.map((file) => {
-            const selected = isItemSelected(file);
-            return (
-              <Grid item xs={6} sm={4} md={3} lg={2} key={file.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    position: "relative",
-                    borderRadius: 2,
-                    overflow: "hidden",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    ...getCardStyles(selected),
-                  }}
-                  onClick={() => { /* placeholder */ }}
-                >
+          {            sortedFiles.map((file) => {
+              const selected = isItemSelected(file);
+              const isFolderItem = isFolder(file);
+              return (
+                <Grid item xs={6} sm={4} md={3} lg={2} key={file.id}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      position: "relative",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                      cursor: isFolderItem ? "pointer" : "default",
+                      transition: "all 0.2s ease",
+                      ...getCardStyles(selected),
+                    }}
+                    onClick={() => handleItemClick(file)}
+                  >
                   {/* Grid view checkbox overlay */}
                   <Checkbox
                     size="small"
@@ -550,12 +580,14 @@ function Starred() {
         onStartShare={openShareDialog}
         onStartRename={openRenameDialog}
         onStartMove={handleStartMove}
+        onViewDetails={handleViewDetails}
         onRename={selectedFile && isFolder(selectedFile) ? () => openRenameDialog(selectedFile) : undefined}
         onFolderShare={selectedFile && isFolder(selectedFile) ? () => openShareDialog(selectedFile) : undefined}
         onDownloadFolder={selectedFile && isFolder(selectedFile) ? () => handleDownload(selectedFile) : undefined}
         onToggleStar={selectedFile && isFolder(selectedFile) ? () => toggleStar(selectedFile.id) : undefined}
         onTrash={selectedFile && isFolder(selectedFile) ? () => moveToTrash(selectedFile.id) : undefined}
         onMove={selectedFile && isFolder(selectedFile) ? () => handleStartMove(selectedFile) : undefined}
+        onFolderDetails={selectedFile && isFolder(selectedFile) ? () => handleFolderDetails(selectedFile) : undefined}
         isStarred={selectedFile?.isStarred}
         isInTrash={selectedFile?.isDeleted}
       />
@@ -588,6 +620,35 @@ function Starred() {
         onMove={handleMoveConfirm}
         selectedCount={1}
         excludedFolderIds={moveTarget && isFolder(moveTarget) ? [moveTarget.id || moveTarget._id || moveTarget.publicId] : []}
+      />
+
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => {
+          setDetailsPanelOpen(false);
+          setDetailsFile(null);
+        }}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
+          setDetailsFile(null);
+          openShareDialog(file);
+        }}
+      />
+
+      <FolderDetailsPanel
+        open={folderDetailsOpen}
+        folder={detailsFolder || (selectedFile && isFolder(selectedFile) ? selectedFile : null)}
+        onClose={() => {
+          setFolderDetailsOpen(false);
+          setDetailsFolder(null);
+        }}
+        onDescriptionUpdated={(updated) => {
+          if (updated) {
+            setDetailsFolder(updated);
+            refreshFiles();
+          }
+        }}
       />
     </Box>
   );

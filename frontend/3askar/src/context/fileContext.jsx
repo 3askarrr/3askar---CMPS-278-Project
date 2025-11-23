@@ -300,6 +300,7 @@ export const FileProvider = ({ children }) => {
         });
       }
       setError("Unable to update star. Try again.");
+      if (LOG_ENABLED) console.debug("toggleStar failed", { id, error: err?.message }); //@ahmed
       logEvent("toggleStar:error", { id, message: err.message });
       finish({ status: "error", nextState, error: err.message });
     }
@@ -1166,11 +1167,15 @@ const matchesSource = useCallback((file, source) => {
           !file.location)
       );
 
+        return today - date <= 7 * 24 * 60 * 60 * 1000;
+        case "month":
+    
     case "shared":
-      return (
+        return (
           (file.location || "").toLowerCase().includes("shared") ||
           (file.sharedWith?.length ?? 0) > 0
-      );
+        );
+
 
     case "starred":
       return file.isStarred && !file.isDeleted;

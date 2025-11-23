@@ -7,6 +7,8 @@ const { v4: uuidv4 } = require("uuid");  // for generating publicId when missing
 
 const router = express.Router();
 
+const OWNER_FIELDS = "name firstName lastName email picture";
+
 const File = require("../models/File");
 const archiver = require("archiver");
 const updateStorage = require("../utils/storage");
@@ -156,6 +158,7 @@ router.post("/", ensureAuth, async (req, res) => {
     });
 
     await folder.save();
+    await folder.populate("owner", OWNER_FIELDS);
     res.status(201).json(folder);
   } catch (error) {
     console.error("Error creating folder:", error);
@@ -178,7 +181,9 @@ router.get("/", ensureAuth, async (req, res) => {
         parentFolder: null,
         isDeleted: false,
         $or: [{ owner: userId }, { "sharedWith.user": userId }],
-      }).sort({ name: 1 });
+      })
+        .populate("owner", OWNER_FIELDS)
+        .sort({ name: 1 });
 
       // ensure all children have publicId before sending back
 
@@ -203,7 +208,9 @@ router.get("/", ensureAuth, async (req, res) => {
       parentFolder: parent._id,
       isDeleted: false,
       $or: [{ owner: userId }, { "sharedWith.user": userId }],
-    }).sort({ name: 1 });
+    })
+      .populate("owner", OWNER_FIELDS)
+      .sort({ name: 1 });
 
     // ⬇️ if you added something with children before this line, REMOVE it.
     res.json(children);
@@ -303,6 +310,7 @@ router.patch("/:id", ensureAuth, async (req, res) => {
     }
 
     await folder.save();
+    await folder.populate("owner", OWNER_FIELDS);
     res.json(folder);
 
 
@@ -326,7 +334,9 @@ router.get("/starred", ensureAuth, async (req, res) => {
         { owner: userId },
         { "sharedWith.user": userId }
       ]
-    }).sort({ name: 1 });
+    })
+      .populate("owner", OWNER_FIELDS)
+      .sort({ name: 1 });
 
     res.json(starredFolders);
   } catch (error) {
@@ -345,7 +355,9 @@ router.get("/shared", ensureAuth, async (req, res) => {
       isDeleted: false,
       "sharedWith.user": userId,
       owner: { $ne: userId }   // exclude my own folders
-    }).sort({ name: 1 });
+    })
+      .populate("owner", OWNER_FIELDS)
+      .sort({ name: 1 });
 
     res.json(sharedFolders);
   } catch (error) {
@@ -366,7 +378,9 @@ router.get("/trash", ensureAuth, async (req, res) => {
         { owner: userId },
         { "sharedWith.user": userId }
       ]
-    }).sort({ updatedAt: -1 });
+    })
+      .populate("owner", OWNER_FIELDS)
+      .sort({ updatedAt: -1 });
 
     res.json(trashedFolders);
   } catch (error) {
@@ -388,6 +402,7 @@ router.get("/recent", ensureAuth, async (req, res) => {
         { "sharedWith.user": userId }
       ]
     })
+      .populate("owner", OWNER_FIELDS)
       .sort({ updatedAt: -1 }) // newest first
       .limit(limit);
 
@@ -417,7 +432,9 @@ router.get("/search", ensureAuth, async (req, res) => {
         { owner: userId },
         { "sharedWith.user": userId }
       ]
-    }).sort({ name: 1 });
+    })
+      .populate("owner", OWNER_FIELDS)
+      .sort({ name: 1 });
 
     res.json(results);
   } catch (error) {
@@ -651,6 +668,7 @@ router.post("/:id/copy", ensureAuth, async (req, res) => {
       overrideName: rootCopyName,
     });
 
+    await rootCopy.populate("owner", OWNER_FIELDS);
     res.status(201).json(rootCopy);
   } catch (error) {
     console.error("Error copying folder tree:", error);
@@ -674,6 +692,8 @@ router.get("/:id", ensureAuth, async (req, res) => {
         .json({ message: "You do not have permission to view this folder" });
     }
 
+    await folder.populate("owner", OWNER_FIELDS);
+    await folder.populate("sharedWith.user", "name email picture");
     res.json(folder);
   } catch (error) {
     console.error("Error fetching folder by ID:", error);
@@ -878,7 +898,7 @@ router.patch("/:id/share", ensureAuth, async (req, res) => {
       }
     );
 
-    const updatedRoot = await Folder.findById(folder._id);
+    const updatedRoot = await Folder.findById(folder._id).populate("owner", OWNER_FIELDS);
     res.json({ message: "Folder shared", folder: updatedRoot });
   } catch (err) {
     console.error("Error in PATCH /folders/:id/share:", err);
@@ -926,7 +946,7 @@ router.patch("/:id/unshare", ensureAuth, async (req, res) => {
       }
     );
 
-    const updatedRoot = await Folder.findById(folder._id);
+    const updatedRoot = await Folder.findById(folder._id).populate("owner", OWNER_FIELDS);
     res.json({ message: "User unshared from folder", folder: updatedRoot });
   } catch (err) {
     console.error("Error in PATCH /folders/:id/unshare:", err);
@@ -984,7 +1004,7 @@ router.patch("/:id/permission", ensureAuth, async (req, res) => {
       }
     );
 
-    const updatedRoot = await Folder.findById(folder._id);
+    const updatedRoot = await Folder.findById(folder._id).populate("owner", OWNER_FIELDS);
     res.json({ message: "Folder permissions updated", folder: updatedRoot });
   } catch (err) {
     console.error("Error in PATCH /folders/:id/permission:", err);

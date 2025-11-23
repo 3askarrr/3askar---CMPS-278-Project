@@ -26,7 +26,9 @@ function HoverActions({
   showRename = true,
   showStar = true,
   disableWrapper = false,
+  onClick, //@ameera
   sx = {},
+  ...props //@ameera
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -52,6 +54,7 @@ function HoverActions({
 
   return (
     <Box
+      onClick={onClick} //@ameera
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onContextMenu={(event) => {
@@ -59,6 +62,7 @@ function HoverActions({
         onContextMenu(event, file);
       }}
       sx={containerStyles}
+      {...props} //@ameera
     >
       {/* === QUICK ACTIONS (only when hovered) === */}
       {hovered && (

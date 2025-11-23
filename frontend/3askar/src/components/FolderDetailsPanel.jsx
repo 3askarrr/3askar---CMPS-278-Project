@@ -1,12 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Drawer,
   Box,
   Typography,
   Divider,
   TextField,
-  Tabs,
-  Tab,
   IconButton,
   useMediaQuery,
   useTheme,
@@ -28,8 +26,13 @@ function formatDate(dateString) {
 export default function FolderDetailsPanel({ open, folder, onClose, onDescriptionUpdated }) {
   if (!folder) return null;
 
-  const [tab, setTab] = useState(0); // 0 = Details, 1 = Activity (placeholder)
   const [description, setDescription] = useState(folder.description || "");
+
+  useEffect(() => {
+    if (open && folder) {
+      setDescription(folder.description || "");
+    }
+  }, [open, folder]);
 
  
   const [saving, setSaving] = useState(false);
@@ -43,15 +46,22 @@ export default function FolderDetailsPanel({ open, folder, onClose, onDescriptio
       setSaving(true);
       setSaveError(null);
 
-      const updated = await updateFolder(folder.publicId || folder._id, {
+      // Try publicId first, then id (from normalized folders), then _id
+      const folderId = folder.publicId || folder.id || folder._id;
+      if (!folderId) {
+        throw new Error("Folder ID not found");
+      }
+
+      const updated = await updateFolder(folderId, {
         description: description,
       });
 
       onDescriptionUpdated?.(updated);
     } catch (err) {
       console.error("Failed to update folder description", err);
-      setSaveError(err.message || "Failed to save");
-      alert(err.message || "Failed to save description");
+      const errorMessage = err.message || "Failed to save description";
+      setSaveError(errorMessage);
+      alert(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -139,109 +149,64 @@ export default function FolderDetailsPanel({ open, folder, onClose, onDescriptio
 
       <Divider />
 
-      {/* ---------- TABS ---------- */}
-      <Tabs
-        value={tab}
-        onChange={(e, value) => setTab(value)}
-        centered
-        disableRipple
-        TabIndicatorProps={{
-          sx: {
-            backgroundColor: "#1a73e8",
-            height: 2,
-            borderRadius: 1,
-            transition: "all 0.25s ease",
-          },
-        }}
-        sx={{
-          px: 2,
-          borderBottom: "1px solid #e0e0e0",
-          "& .MuiTab-root": {
-            textTransform: "none",
-            minWidth: "auto",
-            mx: 3,
-            fontWeight: 500,
-            fontSize: "15px",
-            color: "#5f6368",
-          },
-          "& .Mui-selected": {
-            color: "#1a73e8",
-          },
-        }}
-      >
-        <Tab label="Details" />
-        <Tab label="Activity" />
-      </Tabs>
-
       {/* ---------- CONTENT ---------- */}
       <Box sx={{ p: 2, overflowY: "auto", flexGrow: 1 }}>
-        {tab === 0 && (
-          <>
-            <Typography sx={{ fontWeight: "bold" }}>Location</Typography>
-            <Typography sx={{ mb: 2 }}>
-              {folder.location === "TRASH"
-                ? "Trash"
-                : folder.location === "SHARED"
-                ? "Shared with me"
-                : "My Drive"}
-            </Typography>
+        <Typography sx={{ fontWeight: "bold" }}>Location</Typography>
+        <Typography sx={{ mb: 2 }}>
+          {folder.location === "TRASH"
+            ? "Trash"
+            : folder.location === "SHARED"
+            ? "Shared with me"
+            : "My Drive"}
+        </Typography>
 
-            <Typography sx={{ fontWeight: "bold" }}>Path</Typography>
-            <Typography sx={{ mb: 2 }}>
-              {folder.path || "/My Drive"}
-            </Typography>
+        <Typography sx={{ fontWeight: "bold" }}>Path</Typography>
+        <Typography sx={{ mb: 2 }}>
+          {folder.path || "/My Drive"}
+        </Typography>
 
-            <Typography sx={{ fontWeight: "bold" }}>Description</Typography>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a description"
-              sx={{ mb: 1 }}
-            />
-            <Box
-              sx={{
-                backgroundColor: "#e8f0fe",
-                color: "#1a73e8",
-                px: 2,
-                py: 1,
-                width: "fit-content",
-                borderRadius: 2,
-                fontWeight: 600,
-                cursor: saving ? "default" : "pointer",
-                opacity: saving ? 0.7 : 1,
-              }}
-              onClick={saving ? undefined : handleSaveDescription}
-            >
-              {saving ? "Saving..." : "Save"}
-            </Box>
+        <Typography sx={{ fontWeight: "bold" }}>Description</Typography>
+        <TextField
+          fullWidth
+          multiline
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Add a description"
+          sx={{ mb: 1 }}
+        />
+        <Box
+          sx={{
+            backgroundColor: "#e8f0fe",
+            color: "#1a73e8",
+            px: 2,
+            py: 1,
+            width: "fit-content",
+            borderRadius: 2,
+            fontWeight: 600,
+            cursor: saving ? "default" : "pointer",
+            opacity: saving ? 0.7 : 1,
+          }}
+          onClick={saving ? undefined : handleSaveDescription}
+        >
+          {saving ? "Saving..." : "Save"}
+        </Box>
 
-            {saveError && (
-              <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
-                {saveError}
-              </Typography>
-            )}
-
-
-            <Typography sx={{ fontWeight: "bold" }}>Created</Typography>
-            <Typography sx={{ mb: 2 }}>
-              {formatDate(folder.createdAt)}
-            </Typography>
-
-            <Typography sx={{ fontWeight: "bold" }}>Last modified</Typography>
-            <Typography sx={{ mb: 2 }}>
-              {formatDate(folder.updatedAt)}
-            </Typography>
-          </>
-        )}
-
-        {tab === 1 && (
-          <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
-            Folder activity will appear here once backend tracking is added.
+        {saveError && (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+            {saveError}
           </Typography>
         )}
+
+        <Typography sx={{ fontWeight: "bold" }}>Created</Typography>
+        <Typography sx={{ mb: 2 }}>
+          {formatDate(folder.createdAt)}
+        </Typography>
+
+        <Typography sx={{ fontWeight: "bold" }}>Last modified</Typography>
+        <Typography sx={{ mb: 2 }}>
+          {formatDate(folder.updatedAt)}
+        </Typography>
       </Box>
     </Drawer>
   );

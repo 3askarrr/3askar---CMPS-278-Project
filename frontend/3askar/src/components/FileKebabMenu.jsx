@@ -36,6 +36,8 @@ function FileKebabMenu({
   onDownloadFolder,
   onMove, // New prop for folder move
   onStartMove, // New prop for file move
+  showRename = true,
+  showInfo = true,
 }) {
   const { moveToTrash, toggleStar, downloadFile, copyFile } = useFiles();
 
@@ -165,10 +167,12 @@ function FileKebabMenu({
       </MenuItem>
 
       {/* Rename */}
-      <MenuItem onClick={handleRename} sx={menuItemStyle}>
-        <DriveFileRenameOutlineIcon fontSize="small" sx={iconStyle} />
-        Rename
-      </MenuItem>
+      {showRename && ( //@ameera
+        <MenuItem onClick={handleRename} sx={menuItemStyle}>
+          <DriveFileRenameOutlineIcon fontSize="small" sx={iconStyle} />
+          Rename
+        </MenuItem>
+      )}
 
       {/* Make a copy */}
       <MenuItem onClick={handleCopy} sx={menuItemStyle}>
@@ -198,10 +202,12 @@ function FileKebabMenu({
       </MenuItem>
 
       {/* Info – File information / Folder information */}
-      <MenuItem onClick={handleInfo} sx={menuItemStyle}>
-        <InfoIcon fontSize="small" sx={iconStyle} />
-        {isFolderMenu ? "Folder information" : "File information"}
-      </MenuItem>
+      {showInfo && ( //@ameera
+        <MenuItem onClick={handleInfo} sx={menuItemStyle}>
+          <InfoIcon fontSize="small" sx={iconStyle} />
+          {isFolderMenu ? "Folder information" : "File information"}
+        </MenuItem>
+      )}
 
       <Divider sx={{ my: 0.5 }} />
 

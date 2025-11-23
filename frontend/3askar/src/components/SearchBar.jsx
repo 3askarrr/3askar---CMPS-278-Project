@@ -300,7 +300,6 @@ export default function SearchBar() {
               <MenuItem value="anyone">Anyone</MenuItem>
               <MenuItem value="me">Owned by me</MenuItem>
               <MenuItem value="notMe">Not owned by me</MenuItem>
-              <MenuItem value="person">Specific person</MenuItem>
             </Select>
           </Box>
 
