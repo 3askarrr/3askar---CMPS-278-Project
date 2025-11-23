@@ -138,7 +138,7 @@ router.post('/forgot-password', async (req, res) => {
 
     //Set token and expiry 15 minutes from now
     user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
 
     await user.save();
     
@@ -166,8 +166,6 @@ router.post('/forgot-password', async (req, res) => {
           <p>If you did not request this, you can safely ignore this email.</p>
         `;
 
-
-    await sendEmail({ to: email, subject, text, html }); // eamil is sent using nodemailer    
     try {
       await sendEmail({
         to: email,
@@ -197,6 +195,12 @@ router.post('/reset-password', async (req, res) => {
 
     if (!token || !newPassword) {
       return res.status(400).send("Token and new password are required");
+    }
+
+    // Validate password strength
+    const strongPasswordRegex = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
+    if (!strongPasswordRegex.test(newPassword)) {
+      return res.status(400).send("Password must include upper/lower case letters, a number, a symbol, and be at least 8 characters.");
     }
 
     //Find user with matching takoen that isnt expired

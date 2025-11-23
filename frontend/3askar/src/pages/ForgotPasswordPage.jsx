@@ -3,6 +3,13 @@ import { Box, Paper, Typography, TextField, Button } from "@mui/material";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const isValidEmail = (value) => {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (trimmed === "") return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+};
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -13,6 +20,13 @@ export default function ForgotPasswordPage() {
   e.preventDefault();
   setMessage("");
   setError("");
+
+  if (!isValidEmail(email)) {
+    setError("Please enter a valid email address.");
+    return;
+  }
+
+  setIsSubmitting(true);
 
   try {
     const res = await fetch(`${API_URL}/auth/forgot-password`, {
@@ -43,6 +57,8 @@ export default function ForgotPasswordPage() {
   } catch (err) {
     console.error("Forgot password error:", err);
     setError(err.message || "Server error, please try again.");
+  } finally {
+    setIsSubmitting(false);
   }
 };
 

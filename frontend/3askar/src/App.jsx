@@ -8,24 +8,29 @@ import MyDrive from "./pages/MyDrive";
 import Starred from "./pages/Starred";
 import Shared from "./pages/Shared";
 import Bin from "./pages/Bin";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import SearchResults from "./pages/SearchResults";
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Homepage />} />
-            <Route path="/mydrive" element={<MyDrive />} />
-            <Route path="/starred" element={<Starred />} />
-            <Route path="/shared" element={<Shared />} />
-            <Route path="/bin" element={<Bin />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Homepage initialView="HOME" />} />
+          <Route path="/mydrive" element={<Homepage initialView="MY_DRIVE" />} />
+          <Route path="/starred" element={<Starred />} />
+          <Route path="/shared" element={<Shared />} />
+          <Route path="/bin" element={<Bin />} />
+          <Route path="/folders/:folderId" element={<Homepage initialView="MY_DRIVE" />} />
+          <Route path="/search" element={<SearchResults />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 }
 

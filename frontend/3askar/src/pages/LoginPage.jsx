@@ -17,6 +17,9 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useFiles } from "../context/fileContext";
+
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -41,6 +44,8 @@ const isStrongPassword = (value) => {
 };
 
 export default function LoginPage() {
+  const { setUser } = useAuth();
+  const { refreshFiles } = useFiles();
   const navigate = useNavigate();
 
   // LOGIN STATE
@@ -158,7 +163,8 @@ export default function LoginPage() {
   };
 
   // LOGIN
-  const handleLogin = async () => {
+  const handleLogin = async (event) => {
+    if (event) event.preventDefault();
     setShowLoginErrors(true);
 
     const required = [
@@ -190,15 +196,42 @@ export default function LoginPage() {
     setLoginAlert(null);
     setShowLoginErrors(false);
 
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password, rememberMe }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
 
-    const msg = await res.text();
-    console.log(msg);
+      const msg = await res.text();
+      if (res.ok) {
+        try {
+          const profileRes = await fetch(`${API_URL}/user/profile`, {
+            method: "GET",
+            credentials: "include",
+          });
+
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            setUser(profileData);
+            // Immediately refresh file collections now that we have a user
+            refreshFiles();
+          } else {
+            console.warn("Login succeeded but /user/profile failed");
+          }
+        } catch (e) {
+          console.error("Error fetching profile after login:", e);
+        }
+
+        navigate("/");
+      } else {
+        setLoginAlert({ severity: "error", message: msg || "Login failed" });
+      }
+    } catch (err) {
+      setLoginAlert({ severity: "error", message: "Network error during login" });
+      console.error('Login error:', err);
+    }
   };
 
   // CREATE ACCOUNT
@@ -263,9 +296,17 @@ export default function LoginPage() {
         password,
       }),
     });
-
-    const msg = await res.text();
-    console.log(msg);
+    try {
+      const msg = await res.text();
+      if (res.ok) {
+        navigate('/');
+      } else {
+        setCreateAlert({ severity: "error", message: msg || "Account creation failed" });
+      }
+    } catch (err) {
+      setCreateAlert({ severity: "error", message: "Network error during account creation" });
+      console.error('Create account error:', err);
+    }
   };
 
   // GOOGLE
@@ -340,13 +381,17 @@ export default function LoginPage() {
             </Typography>
 
             <Typography variant="body2" color="blackSecondary" sx={{ mb: 1 }}>
-              to continue to Google Drive
+              to continue to 3askar Drive
             </Typography>
           </Box>
 
           {/* LOGIN MODE */}
           {mode === "login" && (
-            <>
+            <form 
+              onSubmit={handleLogin}
+              noValidate
+              style={{ margin: 0, padding: 0 }}
+            >
               {loginAlert && (
                 <Alert
                   severity={loginAlert.severity}
@@ -559,7 +604,7 @@ export default function LoginPage() {
                   )}
                 </Button>
               </Box>
-            </>
+            </form>
           )}
 
           {/* CREATE ACCOUNT MODE */}

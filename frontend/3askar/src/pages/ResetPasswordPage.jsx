@@ -1,23 +1,73 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import { Box, Paper, Typography, TextField, Button } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const isValueEmpty = (value) => {
+  if (typeof value === "string") return value.trim() === "";
+  return !value;
+};
+
+const strongPasswordRegex =
+  /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
+
+const isStrongPassword = (value) => {
+  if (typeof value !== "string") return false;
+  return strongPasswordRegex.test(value);
+};
+
 export default function ResetPasswordPage() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+
+  const getPasswordErrorMessage = () => {
+    if (!showErrors) return "";
+    if (isValueEmpty(newPassword)) return "Required";
+    if (!isStrongPassword(newPassword)) {
+      return "Use 8+ characters with upper, lower, number, and symbol.";
+    }
+    return "";
+  };
+
+  const getConfirmPasswordErrorMessage = () => {
+    if (!showErrors) return "";
+    if (isValueEmpty(confirmPassword)) return "Required";
+    if (newPassword !== confirmPassword) return "Passwords do not match";
+    return "";
+  };
+
+  const passwordErrorMessage = getPasswordErrorMessage();
+  const confirmPasswordErrorMessage = getConfirmPasswordErrorMessage();
+
+  // Redirect to login after successful password reset
+  useEffect(() => {
+    if (message && !error && !isSubmitting) {
+      const timer = setTimeout(() => {
+        navigate('/login', { replace: true });
+      }, 2000); // 2 second delay to show success message
+      return () => clearTimeout(timer);
+    }
+  }, [message, error, isSubmitting, navigate]);
 
   const handleResetPassword = async () => {
+    setShowErrors(true);
     setError('');
     setMessage('');
 
-    if (!newPassword || !confirmPassword) {
+    if (isValueEmpty(newPassword) || isValueEmpty(confirmPassword)) {
       setError('Please fill in both password fields.');
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      setError('Password must include upper/lower case letters, a number, a symbol, and be at least 8 characters.');
       return;
     }
 
@@ -79,6 +129,8 @@ export default function ResetPasswordPage() {
           sx={{ mb: 2 }}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
+          error={Boolean(passwordErrorMessage)}
+          helperText={passwordErrorMessage || " "}
         />
 
         <TextField
@@ -88,6 +140,8 @@ export default function ResetPasswordPage() {
           sx={{ mb: 2 }}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          error={Boolean(confirmPasswordErrorMessage)}
+          helperText={confirmPasswordErrorMessage || " "}
         />
 
         <Button

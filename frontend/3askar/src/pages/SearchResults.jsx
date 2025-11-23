@@ -1,0 +1,595 @@
+import React from "react";
+import {
+  Box,
+  Typography,
+  IconButton,
+  Grid,
+  Paper,
+  CircularProgress,
+  Checkbox,
+} from "@mui/material";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import ListIcon from "@mui/icons-material/ViewList";
+import GridViewIcon from "@mui/icons-material/GridView";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import StarIcon from "@mui/icons-material/Star";
+import FolderIcon from "@mui/icons-material/Folder";
+import FileKebabMenu from "../components/FileKebabMenu";
+import RenameDialog from "../components/RenameDialog";
+import ShareDialog from "../components/ShareDialog";
+import DetailsPanel from "../components/DetailsPanel";
+import BatchToolbar from "../components/BatchToolbar";
+import { useFiles } from "../context/fileContext.jsx";
+import { searchFiles } from "../services/api/files";
+import { isFolder } from "../utils/fileHelpers";
+import { getRowStyles, getCardStyles, checkboxOverlayStyles } from "../styles/selectionTheme";
+import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
+import HoverActions from "../components/HoverActions"; //@ameera
+
+const DEFAULT_FILE_ICON =
+  "https://www.gstatic.com/images/icons/material/system/2x/insert_drive_file_black_24dp.png";
+
+const iconMap = [
+  {
+    matcher: (ext, mime) => mime?.includes("pdf") || ext === "pdf",
+    icon: "https://www.gstatic.com/images/icons/material/system/2x/picture_as_pdf_black_24dp.png",
+  },
+  {
+    matcher: (ext, mime) =>
+      mime?.startsWith("image/") ||
+      ["png", "jpg", "jpeg", "gif", "bmp"].includes(ext),
+    icon: "https://www.gstatic.com/images/icons/material/system/2x/image_black_24dp.png",
+  },
+  {
+    matcher: (ext, mime) =>
+      mime?.includes("presentation") || ["ppt", "pptx"].includes(ext),
+    icon: "https://www.gstatic.com/images/icons/material/system/2x/slideshow_black_24dp.png",
+  },
+  {
+    matcher: (ext, mime) =>
+      mime?.includes("spreadsheet") || ["xls", "xlsx", "csv"].includes(ext),
+    icon: "https://www.gstatic.com/images/icons/material/system/2x/grid_on_black_24dp.png",
+  },
+  {
+    matcher: (ext, mime) =>
+      mime?.includes("wordprocessingml") || ["doc", "docx"].includes(ext),
+    icon: "https://www.gstatic.com/images/icons/material/system/2x/description_black_24dp.png",
+  },
+];
+
+const resolveIcon = (filename = "", mime = "") => {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const match = iconMap.find(({ matcher }) => matcher(ext, mime));
+  return match?.icon ?? DEFAULT_FILE_ICON;
+};
+
+const normalizeFile = (file) => {
+  if (!file) return null;
+
+  const ownerObject =
+    typeof file.owner === "object" && file.owner !== null ? file.owner : null;
+
+  return {
+    id: file._id?.toString() ?? file.id,
+    gridFsId: file.gridFsId,
+    name: file.filename || file.originalName || file.name || "Untitled", //@ameera
+    owner: ownerObject?.name || ownerObject?.email || "Me",
+    ownerId: ownerObject?._id ?? file.owner ?? null,
+    ownerEmail: ownerObject?.email,
+    location: file.location || "My Drive",
+    uploadedAt: file.uploadDate,
+    lastAccessedAt: file.lastAccessed || file.lastAccessedAt,
+    isStarred: Boolean(file.isStarred),
+    isDeleted: Boolean(file.isDeleted),
+    sharedWith: Array.isArray(file.sharedWith)
+      ? file.sharedWith.map((entry) => ({
+          userId: entry.user?._id || entry.user,
+          name: entry.user?.name || null,
+          email: entry.user?.email || null,
+          picture: entry.user?.picture || null,
+          permission: entry.permission,
+        }))
+      : [],
+    size: file.size,
+    type: file.type,
+    description: file.description || "",
+    path: Array.isArray(file.path) ? file.path : [],
+    icon: resolveIcon(file.filename || file.originalName, file.type),
+  };
+};
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString();
+};
+
+function SearchResults() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryKey = searchParams.toString();
+
+  const {
+    renameFile,
+    refreshFiles,
+    toggleStar,
+    batchMove, //@ahmed
+    selectedFiles,
+    selectedFolders,
+    toggleFileSelection,
+    toggleFolderSelection,
+    clearSelection,
+    selectAll,
+    downloadFile, //@ameera
+  } = useFiles();
+
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [viewMode, setViewMode] = React.useState("list");
+
+  const [menuAnchorEl, setMenuAnchorEl] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
+
+  const [detailsPanelOpen, setDetailsPanelOpen] = React.useState(false);
+  const [detailsFile, setDetailsFile] = React.useState(null);
+
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [fileToRename, setFileToRename] = React.useState(null);
+
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [fileToShare, setFileToShare] = React.useState(null);
+
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false); //@ahmed
+  const [moveTarget, setMoveTarget] = React.useState(null);
+
+  const buildParams = React.useCallback(() => {
+    const params = {};
+    searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+    return params;
+  }, [queryKey]);
+
+  const loadResults = React.useCallback(
+    async (options = {}) => {
+      const silent = options.silent === true;
+      if (!silent) setLoading(true);
+      setError(null);
+
+      try {
+        const { data } = await searchFiles(buildParams());
+        const normalized = (data || []).map(normalizeFile).filter(Boolean);
+        setResults(normalized);
+      } catch (err) {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Unable to search files right now."
+        );
+        setResults([]);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [buildParams]
+  );
+
+  React.useEffect(() => {
+    loadResults();
+  }, [loadResults]);
+
+  React.useEffect(() => {
+    clearSelection();
+  }, [queryKey, clearSelection]);
+
+  React.useEffect(() => {
+    if (!detailsFile) return;
+    const updated = results.find((f) => f.id === detailsFile.id);
+    if (updated) setDetailsFile(updated);
+  }, [results, detailsFile]);
+
+  const openMenu = (event, file) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedFile(file);
+  };
+
+  const closeMenu = () => {
+    setMenuAnchorEl(null);
+    setSelectedFile(null);
+  };
+
+  const handleFileClick = (file) => {
+    if (!file) return;
+    if ((file.type || "").toLowerCase() === "folder") {
+      navigate(`/folders/${file.id}`);
+      // return;    @ahmed
+    }
+  };
+
+  const isItemSelected = (file) => {
+    const itemIsFolder = isFolder(file);
+    return (itemIsFolder ? selectedFolders : selectedFiles).has(file.id);
+  };
+
+  const toggleSelectionFor = (file) => {
+    const itemIsFolder = isFolder(file);
+    if (itemIsFolder) toggleFolderSelection(file.id); else toggleFileSelection(file.id);
+  };
+
+  const selectedCount = React.useMemo(
+    () =>
+      results.reduce((acc, f) => {
+        const itemIsFolder = isFolder(f);
+        const set = itemIsFolder ? selectedFolders : selectedFiles;
+        return set.has(f.id) ? acc + 1 : acc;
+      }, 0),
+    [results, selectedFiles, selectedFolders]
+  );
+  const allSelected = selectedCount > 0 && selectedCount === results.length;
+  const someSelected = selectedCount > 0 && selectedCount < results.length;
+
+  const handleHeaderToggle = () => {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAll(results);
+    }
+  };
+
+  const handleStarClick = async (event, file) => {
+    event.stopPropagation();
+    await toggleStar(file.id);
+    refreshFiles();
+    loadResults({ silent: true });
+  };
+
+  const handleRenameSubmit = async (newName) => {
+    if (!fileToRename) return;
+    await renameFile(fileToRename.id, newName);
+    setRenameDialogOpen(false);
+    setFileToRename(null);
+    await loadResults({ silent: true });
+    refreshFiles();
+  };
+
+ const handleStartMove = (item) => {
+   setMoveTarget(item);
+   setMoveDialogOpen(true);
+ };
+
+ const handleMoveConfirm = async (destinationFolderId) => {
+   if (!moveTarget) return;
+   const isFolderItem = (moveTarget.type || "").toLowerCase() === "folder";
+   const id = moveTarget.id || moveTarget._id;
+   try {
+     await batchMove(
+       isFolderItem ? [] : [id],
+       isFolderItem ? [id] : [],
+       destinationFolderId
+     );
+     await refreshFiles();
+     await loadResults({ silent: true });
+   } finally {
+     setMoveDialogOpen(false);
+     setMoveTarget(null);
+   }
+ };
+
+
+  const handleActionComplete = (action) => {
+    if (action === "download") return;
+    refreshFiles();
+    loadResults({ silent: true });
+  };
+
+  const primaryQuery =
+    searchParams.get("q") ||
+    searchParams.get("itemName") ||
+    searchParams.get("includesWords");
+
+  return (
+    <Box
+      sx={{
+        flexGrow: 1,
+        px: { xs: 2, md: 4 },
+        pt: 3,
+        pb: 6,
+        marginTop: "64px",
+        backgroundColor: "#ffffff",
+        height: "calc(100vh - 64px)",
+        overflowY: "auto",
+        borderTopLeftRadius: 12,
+        color: "#000000ff",
+      }}
+    >
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+        Search Results
+      </Typography>
+      {primaryQuery && (
+        <Typography sx={{ color: "#5f6368", mb: 2 }}>
+          Showing matches for "{primaryQuery}"
+        </Typography>
+      )}
+
+      {selectedCount > 0 && <BatchToolbar visibleItems={results} />}
+
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <IconButton
+          onClick={() => setViewMode("list")}
+          sx={{ color: viewMode === "list" ? "#1a73e8" : "#5f6368" }}
+        >
+          <ListIcon />
+        </IconButton>
+
+        <IconButton
+          onClick={() => setViewMode("grid")}
+          sx={{ color: viewMode === "grid" ? "#1a73e8" : "#5f6368" }}
+        >
+          <GridViewIcon />
+        </IconButton>
+      </Box>
+
+      {loading ? (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 2 }}>
+          <CircularProgress size={20} />
+          <Typography>Searching files...</Typography>
+        </Box>
+      ) : error ? (
+        <Typography sx={{ p: 2, color: "#d93025" }}>{error}</Typography>
+      ) : results.length === 0 ? (
+        <Typography sx={{ p: 4, color: "#5f6368" }}>
+          No matching files.
+        </Typography>
+      ) : viewMode === "list" ? (
+        <>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              px: 2,
+              py: 1,
+              borderBottom: "1px solid #e0e0e0",
+              color: "#5f6368",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            <Box sx={{ width: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Checkbox
+                size="small"
+                indeterminate={someSelected && !allSelected}
+                checked={allSelected}
+                onChange={handleHeaderToggle}
+              />
+            </Box>
+            <Box sx={{ flex: 3 }}>Name</Box>
+            <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Owner</Box>
+            <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Location</Box>
+            <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>Date modified</Box>
+            <Box sx={{ width: 40 }} />
+          </Box>
+
+          {results.map((file) => {
+            const selected = isItemSelected(file);
+            return (
+              <HoverActions //@a,eera
+                key={file.id}
+                file={file}
+                onClick={() => handleFileClick(file)}
+                toggleStar={toggleStar}
+                openShareDialog={(file) => {
+                  setFileToShare(file);
+                  setShareDialogOpen(true);
+                }}
+                openRenameDialog={(file) => {
+                  setFileToRename(file);
+                  setRenameDialogOpen(true);
+                }}
+                openMenu={openMenu}
+                downloadFile={downloadFile}
+                formatDate={formatDate}
+                sx={{
+                  cursor: "pointer",
+                  ...getRowStyles(selected),
+                }}
+               renderContent={(file) => (
+                  <>
+                    <Box sx={{ width: 40, display: "flex", justifyContent: "center" }}>
+                      <Checkbox
+                        size="small"
+                        checked={selected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectionFor(file);
+                        }}
+                      />
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                      }}
+                    >
+                  
+
+                    {(file.type || "").toLowerCase() === "folder" ? (
+                      <FolderIcon sx={{ fontSize: 24, color: "#4285f4" }} />
+                    ) : (
+                      <img
+                        src={file.icon || DEFAULT_FILE_ICON}
+                        width={20}
+                        height={20}
+                        alt="file type"
+                      />
+                    )}
+
+                    <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {file.owner || "Unknown"}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {file.location || "My Drive"}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ flex: 2, display: { xs: "none", md: "block" } }}>
+                    <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+            />
+
+                
+            );
+          })}
+        </>
+      ) : (
+        <Grid container spacing={2}>
+          {results.map((file) => {
+            const selected = isItemSelected(file);
+            return (
+              <Grid item xs={12} sm={6} md={3} lg={2} key={file.id}>
+                <Paper
+                  elevation={0}
+                  onClick={() => handleFileClick(file)}
+                  sx={{
+                    border: "1px solid #e0e0e0",
+                    borderRadius: 2,
+                    cursor: "pointer",
+                    transition: "0.2s",
+                    position: "relative",
+                    ...getCardStyles(selected),
+                  }}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={selected}
+                    onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
+                    sx={checkboxOverlayStyles}
+                  />
+                  <IconButton
+                    size="small"
+                    sx={{ position: "absolute", top: 4, right: 4 }}
+                    onClick={(e) => openMenu(e, file)}
+                  >
+                    <MoreVertIcon sx={{ color: "#5f6368" }} />
+                  </IconButton>
+
+                  <Box
+                    sx={{
+                      height: 120,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "#f8f9fa",
+                    }}
+                  >
+                    {(file.type || "").toLowerCase() === "folder" ? (
+                      <FolderIcon sx={{ fontSize: 40, color: "#4285f4" }} />
+                    ) : (
+                      <img
+                        src={file.icon || DEFAULT_FILE_ICON}
+                        width={40}
+                        height={40}
+                        alt="file type"
+                      />
+                    )}
+                  </Box>
+
+                  <Box sx={{ p: 1.5 }}>
+                    <Typography sx={{ fontWeight: 500, fontSize: 14, mb: 0.5 }}>
+                      {file.name}
+                    </Typography>
+                    <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
+                      {file.owner || "Unknown"}
+                    </Typography>
+                    <Typography sx={{ color: "#5f6368", fontSize: 12 }}>
+                      {formatDate(file.lastAccessedAt || file.uploadedAt)}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
+
+      <FileKebabMenu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={closeMenu}
+        selectedFile={selectedFile}
+        onStartRename={(file) => {
+          setFileToRename(file);
+          setRenameDialogOpen(true);
+        }}
+        onStartShare={(file) => {
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+        onViewDetails={(file) => {
+          setDetailsFile(file);
+          setDetailsPanelOpen(true);
+        }}
+        onStartMove={handleStartMove}
+        onActionComplete={handleActionComplete}
+      />
+
+      <DetailsPanel
+        open={detailsPanelOpen}
+        file={detailsFile}
+        onClose={() => setDetailsPanelOpen(false)}
+        onManageAccess={(file) => {
+          setDetailsPanelOpen(false);
+          setFileToShare(file);
+          setShareDialogOpen(true);
+        }}
+      />
+
+      <RenameDialog
+        open={renameDialogOpen}
+        file={fileToRename}
+        onClose={() => {
+          setRenameDialogOpen(false);
+          setFileToRename(null);
+        }}
+        onSubmit={handleRenameSubmit}
+      />
+
+      <ShareDialog
+        open={shareDialogOpen}
+        file={fileToShare}
+        onClose={() => {
+          setShareDialogOpen(false);
+          setFileToShare(null);
+        }}
+      />
+
+      <BatchMoveDialog
+       open={moveDialogOpen}
+       onClose={() => {
+         setMoveDialogOpen(false);
+         setMoveTarget(null);
+       }}
+       onMove={handleMoveConfirm}
+       selectedCount={1}
+       excludedFolderIds={moveTarget && (moveTarget.type || "").toLowerCase() === "folder" ? [moveTarget.id || moveTarget._id] : []}
+     />
+    </Box>
+  );
+}
+
+export default SearchResults;
