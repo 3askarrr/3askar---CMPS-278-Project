@@ -34,6 +34,8 @@ function FileKebabMenu({
   onFolderShare,
   onFolderDetails,
   onDownloadFolder,
+  onMove, // New prop for folder move
+  onStartMove, // New prop for file move
 }) {
   const { moveToTrash, toggleStar, downloadFile, copyFile } = useFiles();
 
@@ -41,7 +43,7 @@ function FileKebabMenu({
 
   // If any of these exist, we’re in "folder mode"
   const isFolderMenu =
-    onRename || onTrash || onToggleStar || onCopy;
+    onRename || onTrash || onToggleStar || onCopy || onMove;
 
   const menuItemStyle = {
     display: "flex",
@@ -182,8 +184,15 @@ function FileKebabMenu({
         Share
       </MenuItem>
 
-      {/* Organize (same as before, just closes menu for now) */}
-      <MenuItem onClick={onClose} sx={menuItemStyle}>
+      {/* Organize (Move) */}
+      <MenuItem onClick={() => {
+        if (isFolderMenu) {
+          onMove?.();
+        } else {
+          onStartMove?.(selectedFile);
+        }
+        onClose?.();
+      }} sx={menuItemStyle}>
         <DriveFileMoveIcon fontSize="small" sx={iconStyle} />
         Organize
       </MenuItem>

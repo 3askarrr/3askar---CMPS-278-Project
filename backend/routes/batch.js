@@ -10,6 +10,24 @@ const archiver = require("archiver");
 // Helper to check if user owns the item or has permission
 const isOwner = (item, userId) => item.owner.toString() === userId.toString();
 
+// Resolve a list of folder identifiers (mixed _id or publicId) to owned folder ObjectIds
+const resolveFolderIds = async (folderIds = [], ownerId) => {
+  const resolved = [];
+  for (const folderId of folderIds) {
+    let folder = null;
+    if (mongoose.Types.ObjectId.isValid(folderId)) {
+      folder = await Folder.findOne({ _id: folderId, owner: ownerId });
+    }
+    if (!folder) {
+      folder = await Folder.findOne({ publicId: folderId, owner: ownerId });
+    }
+    if (folder) {
+      resolved.push(folder._id);
+    }
+  }
+  return resolved;
+};
+
 // Initialize GridFS Bucket
 let gridfsBucket;
 mongoose.connection.once("open", () => {
@@ -30,6 +48,7 @@ router.post("/trash", async (req, res) => {
     }
 
     const location = isDeleted ? "TRASH" : "MY_DRIVE";
+    const resolvedFolderIds = await resolveFolderIds(folderIds, userId);
 
     // Update Files
     if (fileIds.length > 0) {
@@ -40,9 +59,9 @@ router.post("/trash", async (req, res) => {
     }
 
     // Update Folders
-    if (folderIds.length > 0) {
+    if (resolvedFolderIds.length > 0) {
       await Folder.updateMany(
-        { _id: { $in: folderIds }, owner: userId },
+        { _id: { $in: resolvedFolderIds }, owner: userId },
         { $set: { isDeleted, location } }
       );
     }
@@ -65,6 +84,8 @@ router.post("/star", async (req, res) => {
       return res.status(400).json({ message: "isStarred must be a boolean" });
     }
 
+    const resolvedFolderIds = await resolveFolderIds(folderIds, userId);
+
     // Update Files
     if (fileIds.length > 0) {
       await File.updateMany(
@@ -74,9 +95,9 @@ router.post("/star", async (req, res) => {
     }
 
     // Update Folders
-    if (folderIds.length > 0) {
+    if (resolvedFolderIds.length > 0) {
       await Folder.updateMany(
-        { _id: { $in: folderIds }, owner: userId },
+        { _id: { $in: resolvedFolderIds }, owner: userId },
         { $set: { isStarred } }
       );
     }
@@ -94,6 +115,7 @@ router.post("/delete", async (req, res) => {
   try {
     const { fileIds = [], folderIds = [] } = req.body;
     const userId = req.user._id;
+    const resolvedFolderIds = await resolveFolderIds(folderIds, userId);
 
     // 1. Delete Files
     if (fileIds.length > 0) {
@@ -120,7 +142,7 @@ router.post("/delete", async (req, res) => {
     }
 
     // 2. Delete Folders (Recursive)
-    if (folderIds.length > 0) {
+    if (resolvedFolderIds.length > 0) {
       const deleteFolderRecursively = async (folderId) => {
         // Find all children folders
         const childrenFolders = await Folder.find({ parentFolder: folderId, owner: userId });
@@ -149,7 +171,7 @@ router.post("/delete", async (req, res) => {
         await Folder.deleteOne({ _id: folderId });
       };
 
-      for (const folderId of folderIds) {
+      for (const folderId of resolvedFolderIds) {
         // Verify ownership before deleting
         const folder = await Folder.findOne({ _id: folderId, owner: userId });
         if (folder) {
@@ -174,6 +196,8 @@ router.post("/move", async (req, res) => {
 
     let newParentId = null; // null -> root move
     let newPathPrefix = ""; // used for folder path updates
+
+    const resolvedFolderIds = await resolveFolderIds(folderIds, userId);
 
     if (destinationFolderId) {
       // Determine if this looks like a valid ObjectId before querying _id
@@ -207,8 +231,8 @@ router.post("/move", async (req, res) => {
     }
 
     // Update Folders
-    if (folderIds.length > 0) {
-      for (const folderId of folderIds) {
+    if (resolvedFolderIds.length > 0) {
+      for (const folderId of resolvedFolderIds) {
         const folder = await Folder.findOne({ _id: folderId, owner: userId });
         if (!folder) continue;
 
@@ -235,8 +259,9 @@ router.post("/download", async (req, res) => {
   try {
     const { fileIds = [], folderIds = [] } = req.body;
     const userId = req.user._id;
+    const resolvedFolderIds = await resolveFolderIds(folderIds, userId);
 
-    if (fileIds.length === 0 && folderIds.length === 0) {
+    if (fileIds.length === 0 && resolvedFolderIds.length === 0) {
       return res.status(400).json({ message: "No items selected" });
     }
 
@@ -260,9 +285,9 @@ router.post("/download", async (req, res) => {
       }
     }
 
-    if (folderIds.length > 0) {
+    if (resolvedFolderIds.length > 0) {
       const folders = await Folder.find({
-        _id: { $in: folderIds },
+        _id: { $in: resolvedFolderIds },
         $or: [
           { owner: userId },
           { sharedWith: { $elemMatch: { user: userId } } }
@@ -336,6 +361,7 @@ router.post("/share", async (req, res) => {
   try {
     const { fileIds = [], folderIds = [], userId, permission } = req.body;
     const ownerId = req.user._id;
+    const resolvedFolderIds = await resolveFolderIds(folderIds, ownerId);
 
     if (!userId || !permission) {
       return res.status(400).json({ message: "Missing userId or permission" });
@@ -360,8 +386,8 @@ router.post("/share", async (req, res) => {
     }
 
     // 2. Share Folders
-    if (folderIds.length > 0) {
-      const folders = await Folder.find({ _id: { $in: folderIds }, owner: ownerId });
+    if (resolvedFolderIds.length > 0) {
+      const folders = await Folder.find({ _id: { $in: resolvedFolderIds }, owner: ownerId });
       for (const folder of folders) {
         const existing = folder.sharedWith.find(x => x.user.toString() === userId);
         if (existing) {

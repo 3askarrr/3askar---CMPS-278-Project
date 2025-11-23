@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, IconButton, Menu, MenuItem, Checkbox } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import StarIcon from "@mui/icons-material/Star";
+import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
@@ -11,6 +12,8 @@ import { getRowStyles } from "../styles/selectionTheme";
 import HoverActions from "../components/HoverActions.jsx";
 import RenameDialog from "../components/RenameDialog";
 import ShareDialog from "../components/ShareDialog.jsx";
+import BatchMoveDialog from "../components/BatchMoveDialog.jsx";
+import { downloadFolderZip, updateFolder } from "../api/foldersApi.js";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -25,12 +28,19 @@ function Starred() {
     filterBySource,
     loading,
     error,
+    moveToTrash,
+    toggleStar,
+    renameFile,
+    downloadFile,
+    batchMove,
+    refreshFiles,
     selectedFiles,
     selectedFolders,
     toggleFileSelection,
     toggleFolderSelection,
     clearSelection,
     selectAll,
+    starredFiles: contextStarredFiles,
   } = useFiles();
 
   const [sortField, setSortField] = React.useState("name");
@@ -44,6 +54,8 @@ function Starred() {
   const [fileToRename, setFileToRename] = React.useState(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [fileToShare, setFileToShare] = React.useState(null);
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [moveTarget, setMoveTarget] = React.useState(null);
 
   const menuOpen = Boolean(menuAnchorEl) || Boolean(menuPosition);
 
@@ -76,13 +88,75 @@ function Starred() {
   };
 
   const openShareDialog = (file) => {
-    setFileToShare(file);
+    if (!file) return;
+    if (isFolder(file)) {
+      setFileToShare({
+        ...file,
+        isFolder: true,
+        id: file.id || file._id || file.publicId,
+        name: file.name,
+      });
+    } else {
+      setFileToShare(file);
+    }
     setShareDialogOpen(true);
   };
 
   const openRenameDialog = (file) => {
+    if (!file) return;
     setFileToRename(file);
     setRenameDialogOpen(true);
+  };
+
+  const handleStartMove = (item) => {
+    setMoveTarget(item);
+    setMoveDialogOpen(true);
+  };
+
+  const handleMoveConfirm = async (destinationFolderId) => {
+    if (!moveTarget) return;
+    const isFolderItem = isFolder(moveTarget);
+    const id = moveTarget.id || moveTarget._id || moveTarget.publicId;
+    try {
+      await batchMove(
+        isFolderItem ? [] : [id],
+        isFolderItem ? [id] : [],
+        destinationFolderId
+      );
+      await refreshFiles();
+    } finally {
+      setMoveDialogOpen(false);
+      setMoveTarget(null);
+    }
+  };
+
+  const handleDownload = (item) => {
+    if (!item) return;
+    const id = item.id || item._id || item.publicId;
+    if (isFolder(item)) {
+      downloadFolderZip(id);
+    } else {
+      downloadFile(item);
+    }
+  };
+
+  const handleRenameSubmit = async (newName) => {
+    if (!fileToRename) return;
+    const trimmed = (newName || "").trim();
+    if (!trimmed) {
+      setRenameDialogOpen(false);
+      setFileToRename(null);
+      return;
+    }
+    const id = fileToRename.id || fileToRename._id || fileToRename.publicId;
+    if (isFolder(fileToRename)) {
+      await updateFolder(id, { name: trimmed });
+    } else {
+      await renameFile(id, trimmed);
+    }
+    await refreshFiles();
+    setRenameDialogOpen(false);
+    setFileToRename(null);
   };
 
   React.useEffect(() => {
@@ -91,8 +165,19 @@ function Starred() {
 
 
   const starredFiles = React.useMemo(
-    () => filterBySource(undefined, "starred"),
-    [filterBySource]
+    () => {
+      // If we have starredFiles from context (which includes folders), use it.
+      // But we also need to make sure we don't duplicate if filterBySource also returns them?
+      // Actually, filterBySource(undefined, "starred") uses pickSourceList("starred") which uses combinedFiles.
+      // combinedFiles in fileContext now needs to include starredFiles?
+      // Let's check fileContext again. 
+      // I didn't update combinedFiles to include starredFiles.
+      // So filterBySource won't see starred folders unless I update combinedFiles OR I just use starredFiles directly here.
+      // Using starredFiles directly is safer if I expose it.
+      // I exposed starredFiles in fileContext.
+      return contextStarredFiles || [];
+    },
+    [contextStarredFiles]
   );
 
   const sortedFiles = React.useMemo(() => {
@@ -250,24 +335,25 @@ function Starred() {
                 onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
               />
             </Box>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, display: "flex", width: "100%" }}>
               <HoverActions
                 file={file}
-                toggleStar={useFiles().toggleStar}
+                toggleStar={() => toggleStar(file.id)}
                 openShareDialog={openShareDialog}
                 openRenameDialog={openRenameDialog}
-                openMenu={handleMenuButtonClick}
-                downloadFile={useFiles().downloadFile}
+                openMenu={(event) => handleMenuButtonClick(event, file)}
+                downloadFile={handleDownload}
                 formatDate={formatDate}
-                showRename={true}
-                showShare={true}
-                showStar={true}
                 disableWrapper={true}
                 renderContent={(f) => (
                   <>
                     <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
-                      {/* Removed StarIcon as requested */}
-                      <img src={f.icon} width={20} height={20} alt="file icon" />
+                      <StarIcon sx={{ color: "#f7cb4d", fontSize: 20 }} />
+                      {isFolder(f) ? (
+                        <FolderIcon sx={{ color: "#5f6368", fontSize: 20 }} />
+                      ) : (
+                        <img src={f.icon} width={20} height={20} alt="file icon" />
+                      )}
                       {f.name}
                     </Box>
 
@@ -282,7 +368,6 @@ function Starred() {
                 )}
               />
             </Box>
-
           </Box>
         );
       })}
@@ -295,6 +380,15 @@ function Starred() {
         selectedFile={selectedFile}
         onStartShare={openShareDialog}
         onStartRename={openRenameDialog}
+        onStartMove={handleStartMove}
+        onRename={selectedFile && isFolder(selectedFile) ? () => openRenameDialog(selectedFile) : undefined}
+        onFolderShare={selectedFile && isFolder(selectedFile) ? () => openShareDialog(selectedFile) : undefined}
+        onDownloadFolder={selectedFile && isFolder(selectedFile) ? () => handleDownload(selectedFile) : undefined}
+        onToggleStar={selectedFile && isFolder(selectedFile) ? () => toggleStar(selectedFile.id) : undefined}
+        onTrash={selectedFile && isFolder(selectedFile) ? () => moveToTrash(selectedFile.id) : undefined}
+        onMove={selectedFile && isFolder(selectedFile) ? () => handleStartMove(selectedFile) : undefined}
+        isStarred={selectedFile?.isStarred}
+        isInTrash={selectedFile?.isDeleted}
       />
 
       <RenameDialog
@@ -304,11 +398,7 @@ function Starred() {
           setRenameDialogOpen(false);
           setFileToRename(null);
         }}
-        onSubmit={(newName) => {
-          useFiles().renameFile(fileToRename.id, newName);
-          setRenameDialogOpen(false);
-          setFileToRename(null);
-        }}
+        onSubmit={handleRenameSubmit}
       />
 
       <ShareDialog
@@ -318,6 +408,17 @@ function Starred() {
           setShareDialogOpen(false);
           setFileToShare(null);
         }}
+      />
+
+      <BatchMoveDialog
+        open={moveDialogOpen}
+        onClose={() => {
+          setMoveDialogOpen(false);
+          setMoveTarget(null);
+        }}
+        onMove={handleMoveConfirm}
+        selectedCount={1}
+        excludedFolderIds={moveTarget && isFolder(moveTarget) ? [moveTarget.id || moveTarget._id || moveTarget.publicId] : []}
       />
     </Box>
   );

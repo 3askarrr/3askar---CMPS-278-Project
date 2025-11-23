@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import { Box, Typography, IconButton, Menu, MenuItem, Checkbox } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import FolderIcon from "@mui/icons-material/Folder";
 import MenuBar from "../components/MenuBar";
 import BatchToolbar from "../components/BatchToolbar";
 import { useFiles } from "../context/fileContext.jsx";
@@ -255,6 +256,7 @@ function Bin() {
       ) : (
         sortedFiles.map((file) => {
           const selected = isItemSelected(file);
+          const isFolderItem = isFolder(file);
           return (
             <Box
               key={file.id}
@@ -274,20 +276,54 @@ function Bin() {
                   onChange={(e) => { e.stopPropagation(); toggleSelectionFor(file); }}
                 />
               </Box>
-              {/* HOVER ACTIONS ROW */}
               <Box sx={{ flex: 1, display: "flex", width: "100%" }}>
                 <HoverActions
                   key={file.id}
                   file={file}
                   toggleStar={() => null} // no star in trash
                   openShareDialog={() => null} // no share in trash
-                  openMenu={(e) => { }}
+                  openMenu={(e) => handleOpenMenu(e, file)}
                   downloadFile={() => { }}
                   formatDate={formatDate}
                   showRename={false}
+                  renderContent={(file) => (
+                    <>
+                      <Box sx={{ flex: 4, display: "flex", alignItems: "center", gap: 1.5 }}>
+                        {isFolder(file) ? (
+                          <FolderIcon sx={{ fontSize: 24, color: "#5f6368" }} />
+                        ) : (
+                          <img
+                            src={file.icon || DEFAULT_FILE_ICON}
+                            width={20}
+                            height={20}
+                            alt="file type"
+                          />
+                        )}
+                        <Typography sx={{ fontWeight: 500 }}>{file.name}</Typography>
+                      </Box>
+
+                      <Box sx={{ flex: 3, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {file.owner || "Unknown"}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ flex: 2, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {file.location || "My Drive"}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: "#5f6368", fontSize: 14 }}>
+                          {formatDate(file.deletedAt || file.lastAccessedAt || file.uploadedAt)}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
                 />
               </Box>
-            </Box>
+            </Box >
           );
         })
       )}
@@ -303,7 +339,7 @@ function Bin() {
         onClose={closeShareDialog}
       />
 
-    </Box>
+    </Box >
   );
 }
 
